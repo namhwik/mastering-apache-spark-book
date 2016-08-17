@@ -2,7 +2,7 @@
 
 NOTE: Review https://issues.apache.org/jira/browse/SPARK-12795[SPARK-12795 Whole stage codegen] to learn about the work to support it.
 
-*Whole-Stage Code Generation* (aka _WholeStageCodegen_ or _WholeStageCodegenExec_) fuses multiple operators (as a subtree of <<CodegenSupport, plans that support codegen>>) together into a single Java function that is aimed at improving execution performance.
+*Whole-Stage Code Generation* (aka _WholeStageCodegen_ or _WholeStageCodegenExec_) fuses multiple operators (as a subtree of <<CodegenSupport, plans that support codegen>>) together into a single Java function that is aimed at improving execution performance. It collapses a query into a single optimized function that eliminates virtual function calls and leverages CPU registers for intermediate data.
 
 `WholeStageCodegenExec` case class works with a link:spark-sql-spark-plan.adoc[SparkPlan] to produce a *codegened pipeline*. It is a unary node in `SparkPlan` with <<CodegenSupport, support for codegen>>.
 
@@ -159,7 +159,7 @@ NOTE: Only <<CodegenSupport, CodegenSupport>> SparkPlans support codegen for whi
 
 It is assumed that all `Expression` instances except `CodegenFallback` support codegen.
 
-`CollapseCodegenStages` uses the internal setting `spark.sql.codegen.maxFields` (default: `200`) to control the number of fields in input and output schemas before deactivating whole-stage codegen. It counts the fields included in complex types, i.e. `StructType`, `MapType`, `ArrayType`, `UserDefinedType`, and their combinations, recursively. See https://issues.apache.org/jira/browse/SPARK-14554[SPARK-14554].
+`CollapseCodegenStages` uses the internal setting `spark.sql.codegen.maxFields` (default: `200`) to control the number of fields in input and output schemas before deactivating whole-stage codegen. It counts the fields included in complex types, i.e. link:spark-sql-dataframe-structtype.adoc[StructType], `MapType`, `ArrayType`, `UserDefinedType`, and their combinations, recursively. See https://issues.apache.org/jira/browse/SPARK-14554[SPARK-14554].
 
 It inserts `InputAdapter` leaf nodes in a SparkPlan recursively that is then used to generate code that consumes an RDD iterator of `InternalRow`.
 

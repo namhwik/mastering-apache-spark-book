@@ -1,10 +1,12 @@
-== [[ApplicationMaster]][[ExecutorLauncher]] ApplicationMaster (and ExecutorLauncher)
+== [[ApplicationMaster]][[ExecutorLauncher]] ApplicationMaster (aka ExecutorLauncher)
 
-`ApplicationMaster` class acts as the link:yarn/spark-yarn-introduction.adoc#ApplicationMaster[YARN ApplicationMaster] for a Spark application deployed to a YARN cluster.
+`ApplicationMaster` class acts as the link:yarn/spark-yarn-introduction.adoc#ApplicationMaster[YARN ApplicationMaster] for a Spark application running on a YARN cluster (which is commonly called link:README.adoc[Spark on YARN]).
 
-It is a <<main, standalone application>> that link:yarn/spark-yarn-introduction.adoc#NodeManager[YARN NodeManager] runs inside a YARN resource container that controls the execution of a Spark application on YARN (that accepts <<command-line-parameters, command-line parameters>>, e.g. `--jar`, `--class`, `--arg`, `--properties-file`).
+It uses <<allocator, YarnAllocator>> to manage YARN containers for executors.
 
-When <<creating-instance, created>> `ApplicationMaster` class requires a link:spark-yarn-yarnrmclient.adoc[YarnRMClient] (which is responsible for registering and unregistering a Spark application).
+`ApplicationMaster` is a <<main, standalone application>> that link:yarn/spark-yarn-introduction.adoc#NodeManager[YARN NodeManager] runs inside a YARN resource container and is responsible for the execution of a Spark application on YARN.
+
+When <<creating-instance, created>> `ApplicationMaster` class is given a <<client, YarnRMClient>> (which is responsible for registering and unregistering a Spark application).
 
 [NOTE]
 ====
@@ -29,6 +31,20 @@ $ jps -lm
 image::../images/spark-yarn-ApplicationMaster-main.png[align="center"]
 
 NOTE: https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ContainerLaunchContext.html[ContainerLaunchContext] represents all of the information needed by the YARN NodeManager to launch a container.
+
+=== [[client]] client Internal Reference to YarnRMClient
+
+`client` is the internal reference to link:spark-yarn-yarnrmclient.adoc[YarnRMClient] that `ApplicationMaster` is given when <<creating-instance, created>>.
+
+`client` is primarily used to <<registerAM, register the `ApplicationMaster` and request containers for executors from YARN>> and later <<unregister, unregister `ApplicationMaster` from YARN ResourceManager>>.
+
+Besides, it helps obtaining <<getAttemptId, an application attempt id>> and link:spark-yarn-yarnrmclient.adoc#getMaxRegAttempts[the allowed number of attempts to register `ApplicationMaster`]. It also <<addAmIpFilter, gets filter parameters to secure ApplicationMaster's UI>>.
+
+=== [[allocator]] allocator Internal Reference to YarnAllocator
+
+`allocator` is the internal reference to link:spark-yarn-YarnAllocator.adoc[YarnAllocator] that `ApplicationMaster` uses to request new or release outstanding containers for executors.
+
+It is link:spark-yarn-yarnrmclient.adoc#register[created] when <<registerAM, `ApplicationMaster` is registered>> (using the internal <<client, YarnRMClient reference>>).
 
 === [[main]] main
 
@@ -62,7 +78,7 @@ DEBUG running as user: [user]
 
 `SparkHadoopUtil.runAsSparkUser` function executes a block that <<creating-instance, creates a `ApplicationMaster`>> (passing the <<ApplicationMasterArguments, ApplicationMasterArguments>> instance and a brand new link:spark-yarn-yarnrmclient.adoc[YarnRMClient]) and then <<run, runs>> it.
 
-=== [[command-line-parameters]][[ApplicationMasterArguments]] ApplicationMasterArguments -- Command-Line Parameters Handler
+=== [[command-line-parameters]][[ApplicationMasterArguments]] Command-Line Parameters (ApplicationMasterArguments class)
 
 `ApplicationMaster` uses `ApplicationMasterArguments` class to handle command-line parameters.
 
@@ -115,6 +131,9 @@ Then, `registerAM` creates a link:spark-rpc.adoc#RpcEndpointAddress[RpcEndpointA
 It link:spark-yarn-yarnrmclient.adoc#register[registers the `ApplicationMaster`] with the link:spark-yarn-introduction.adoc#ResourceManager[YARN ResourceManager] and link:spark-yarn-YarnAllocator.adoc#allocateResources[request resources] (given hints about where to allocate containers to be as close to the data as possible).
 
 Ultimately, `registerAM` <<launchReporterThread, launches reporter thread>>.
+
+.Registering ApplicationMaster with YARN ResourceManager
+image::../images/spark-yarn-ApplicationMaster-registerAM.png[align="center"]
 
 === [[runDriver]] Running Driver in Cluster Mode (runDriver method)
 
@@ -301,7 +320,7 @@ And the application run attempt is <<finish, finished>> with `FAILED` status and
 
 === [[cluster-mode-settings]] Cluster Mode Settings
 
-When in <<cluster-mode, cluster mode>>, `ApplicationMaster` sets the following system properties (in <<run, run>>):
+When in <<isClusterMode, cluster mode>>, `ApplicationMaster` sets the following system properties (in <<run, run>>):
 
 * link:spark-webui.adoc#spark.ui.port[spark.ui.port] as `0`
 * link:spark-configuration.adoc#spark.master[spark.master] as `yarn`
@@ -310,7 +329,19 @@ When in <<cluster-mode, cluster mode>>, `ApplicationMaster` sets the following s
 
 CAUTION: FIXME Why are the system properties required? Who's expecting them?
 
-=== [[cluster-mode]] Cluster Mode
+=== [[cluster-mode]][[isClusterMode]] isClusterMode Internal Flag
+
+CAUTION: FIXME link:spark-yarn-client.adoc#isClusterMode[Since `org.apache.spark.deploy.yarn.ExecutorLauncher` is used for client deploy mode], the `isClusterMode` flag could be set there (not depending on `--class` which is correct yet not very obvious).
+
+`isClusterMode` is an internal flag that is enabled (i.e. `true`) for link:../spark-deploy-mode.adoc#cluster[cluster mode].
+
+Specifically, it says whether the main class of the Spark application (through <<command-line-parameters, `--class` command-line argument>>) was specified or not. That is how the developers decided to inform `ApplicationMaster` about being run in link:../spark-deploy-mode.adoc#cluster[cluster mode] when link:spark-yarn-client.adoc#createContainerLaunchContext[`Client` creates YARN's `ContainerLaunchContext` (for launching `ApplicationMaster`)].
+
+It is used to set <<cluster-mode-settings, additional system properties>> in <<run, run>> and <<runDriver, runDriver>> (the flag is enabled) or <<runExecutorLauncher, runExecutorLauncher>> (when disabled).
+
+Besides, it controls the <<getDefaultFinalStatus, default final status of a Spark application>> being `FinalApplicationStatus.FAILED` (when the flag is enabled) or `FinalApplicationStatus.UNDEFINED`.
+
+The flag also controls whether to set system properties in <<addAmIpFilter, addAmIpFilter>> (when the flag is enabled) or <<addAmIpFilter, send a `AddWebUIFilter` instead>>.
 
 === [[unregister]] Unregistering ApplicationMaster from YARN ResourceManager (unregister method)
 
@@ -345,7 +376,7 @@ When <<run, `ApplicationMaster` starts running>>, it registers a shutdown hook t
 
 Internally, it checks the internal `finished` flag, and if it is disabled, it <<finish, marks the Spark application as failed with `EXIT_EARLY`>>.
 
-If the internal `unregistered` flag is disabled, it <<unregister, unregisters the Spark application>> and <<cleanupStagingDir, cleans up the staging directory>> afterwards only when the final status of the ApplicationMaster's registration is `FinalApplicationStatus.SUCCEEDED` or the link:yarn/README.adoc#multiple-application-attempts[number of application attempts is more than allowed].
+If the internal `unregistered` flag is disabled, it <<unregister, unregisters the Spark application>> and <<cleanupStagingDir, cleans up the staging directory>> afterwards only when the final status of the ApplicationMaster's registration is `FinalApplicationStatus.SUCCEEDED` or the link:README.adoc#multiple-application-attempts[number of application attempts is more than allowed].
 
 The shutdown hook runs after the SparkContext is shut down, i.e. the shutdown priority is one less than SparkContext's.
 
@@ -363,7 +394,7 @@ With the two different class names (pointing at the same class `ApplicationMaste
 
 NOTE: Consider `ExecutorLauncher` a `ApplicationMaster` for client deploy mode.
 
-=== [[getAttemptId]] Obtain Attempt Id (getAttemptId method)
+=== [[getAttemptId]] Obtain Application Attempt Id (getAttemptId method)
 
 [source, scala]
 ----

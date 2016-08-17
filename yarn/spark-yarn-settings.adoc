@@ -2,6 +2,44 @@
 
 The following settings (aka system properties) are specific to Spark on YARN.
 
+=== [[spark.yarn.credentials.renewalTime]] spark.yarn.credentials.renewalTime
+
+`spark.yarn.credentials.renewalTime` (default: `Long.MaxValue` ms) is an internal setting for the time of the next credentials renewal.
+
+See link:spark-yarn-client.adoc#prepareLocalResources[prepareLocalResources].
+
+=== [[spark.yarn.credentials.updateTime]] spark.yarn.credentials.updateTime
+
+`spark.yarn.credentials.updateTime` (default: `Long.MaxValue` ms) is an internal setting for the time of the next credentials update.
+
+=== [[spark.yarn.rolledLog.includePattern]] spark.yarn.rolledLog.includePattern
+
+`spark.yarn.rolledLog.includePattern`
+
+=== [[spark.yarn.rolledLog.excludePattern]] spark.yarn.rolledLog.excludePattern
+
+`spark.yarn.rolledLog.excludePattern`
+
+=== [[spark.yarn.am.nodeLabelExpression]] spark.yarn.am.nodeLabelExpression
+
+`spark.yarn.am.nodeLabelExpression`
+
+=== [[spark.yarn.am.attemptFailuresValidityInterval]] spark.yarn.am.attemptFailuresValidityInterval
+
+`spark.yarn.am.attemptFailuresValidityInterval`
+
+=== [[spark.yarn.tags]] spark.yarn.tags
+
+`spark.yarn.tags`
+
+=== [[spark.yarn.am.extraLibraryPath]] spark.yarn.am.extraLibraryPath
+
+`spark.yarn.am.extraLibraryPath`
+
+=== [[spark.yarn.am.extraJavaOptions]] spark.yarn.am.extraJavaOptions
+
+`spark.yarn.am.extraJavaOptions`
+
 === [[spark.yarn.scheduler.initial-allocation.interval]] spark.yarn.scheduler.initial-allocation.interval
 
 `spark.yarn.scheduler.initial-allocation.interval` (default: `200ms`) controls the initial allocation interval.
@@ -24,7 +62,7 @@ CAUTION: FIXME
 
 === [[spark.yarn.maxAppAttempts]] spark.yarn.maxAppAttempts
 
-`spark.yarn.maxAppAttempts` is the maximum number of attempts to register *ApplicationMaster* before deploying the Spark application to YARN is considered unsuccessful.
+`spark.yarn.maxAppAttempts` is the maximum number of attempts to register link:spark-yarn-applicationmaster.adoc[ApplicationMaster] before deploying a Spark application to YARN is deemed failed.
 
 It is used when link:spark-yarn-yarnrmclient.adoc#getMaxRegAttempts[`YarnRMClient` computes `getMaxRegAttempts`].
 
@@ -48,7 +86,11 @@ It is used to link:spark-yarn-client.adoc#populateClasspath[populate CLASSPATH f
 
 === [[spark.yarn.queue]] spark.yarn.queue
 
-CAUTION: FIXME Where is this used?
+`spark.yarn.queue` (default: `default`) is the name of the YARN resource queue that link:spark-yarn-client.adoc#createApplicationSubmissionContext[`Client` uses to submit a Spark application to].
+
+You can specify the value using link:../spark-submit.adoc#queue[spark-submit's `--queue` command-line argument].
+
+The value is used to set YARN's link:++https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ApplicationSubmissionContext.html#setQueue(java.lang.String)++https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ApplicationSubmissionContext.html#setQueue(java.lang.String)[ApplicationSubmissionContext.setQueue].
 
 === [[spark.yarn.jars]] spark.yarn.jars
 

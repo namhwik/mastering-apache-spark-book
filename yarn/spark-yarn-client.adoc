@@ -1,12 +1,17 @@
 == Client
 
-`org.apache.spark.deploy.yarn.Client` can be used as a <<main, standalone application>> to link:spark-submit.adoc#submit[submit Spark applications] to a YARN cluster.
+`Client` (package: `org.apache.spark.deploy.yarn`) is a handle to a YARN cluster to deploy link:spark-yarn-applicationmaster.adoc[ApplicationMaster] (for a Spark application being deployed to a YARN cluster).
 
-Depending on the link:spark-deploy-mode.adoc[deploy mode] it calls link:spark-yarn-applicationmaster.adoc[org.apache.spark.deploy.yarn.ApplicationMaster] or ApplicationMaster's wrapper link:spark-yarn-applicationmaster.adoc#ExecutorLauncher[org.apache.spark.deploy.yarn.ExecutorLauncher] by their class names.
+.Client and Hadoop's YarnClient Interactions
+image::../images/spark-yarn-Client-YarnClient.png[align="center"]
+
+Depending on the <<isClusterMode, deploy mode>> it uses link:spark-yarn-applicationmaster.adoc[ApplicationMaster] or ApplicationMaster's wrapper link:spark-yarn-applicationmaster.adoc#ExecutorLauncher[ExecutorLauncher] by their class names in a <<createContainerLaunchContext, ContainerLaunchContext>> (that represents all of the information needed by the YARN NodeManager to launch a container).
+
+It was initially used as a <<main, standalone application>> to link:spark-submit.adoc#submit[submit Spark applications] to a YARN cluster, but is currently considered obsolete.
 
 [TIP]
 ====
-Enable `DEBUG` logging level for `org.apache.spark.deploy.yarn.Client` logger to see what happens inside.
+Enable `INFO` or `DEBUG` logging level for `org.apache.spark.deploy.yarn.Client` logger to see what happens inside.
 
 Add the following line to `conf/log4j.properties`:
 
@@ -17,6 +22,39 @@ log4j.logger.org.apache.spark.deploy.yarn.Client=DEBUG
 Refer to link:spark-logging.adoc[Logging].
 ====
 
+=== [[creating-instance]] Creating Client Instance
+
+Creating an instance of `Client` does the following:
+
+* Creates an internal instance of `YarnClient` (using `YarnClient.createYarnClient`) that becomes `yarnClient`.
+
+* Creates an internal instance of `YarnConfiguration` (using `YarnConfiguration` and the input `hadoopConf`) that becomes `yarnConf`.
+
+* Sets the internal `isClusterMode` that says whether link:spark-deploy-mode.adoc#spark.submit.deployMode[spark.submit.deployMode] is link:spark-deploy-mode.adoc#cluster[cluster deploy mode].
+
+[[amMemory]]
+* Sets the internal `amMemory` to link:spark-driver.adoc#spark.driver.memory[spark.driver.memory] when `isClusterMode` is enabled or link:spark-yarn-settings.adoc#spark.yarn.am.memory[spark.yarn.am.memory] otherwise.
+
+* Sets the internal `amMemoryOverhead` to link:spark-yarn-settings.adoc#spark.yarn.driver.memoryOverhead[spark.yarn.driver.memoryOverhead] when `isClusterMode` is enabled or link:spark-yarn-settings.adoc#spark.yarn.am.memoryOverhead[spark.yarn.am.memoryOverhead] otherwise. If neither is available, the maximum of 10% of `amMemory` and `384` is chosen.
+
+* Sets the internal `amCores` to link:spark-driver.adoc#spark.driver.cores[spark.driver.cores] when `isClusterMode` is enabled or link:spark-yarn-settings.adoc#spark.yarn.am.cores[spark.yarn.am.cores] otherwise.
+
+* Sets the internal `executorMemory` to link:spark-executor.adoc#spark.executor.memory[spark.executor.memory].
+
+* Sets the internal `executorMemoryOverhead` to link:spark-yarn-settings.adoc#spark.yarn.executor.memoryOverhead[spark.yarn.executor.memoryOverhead]. If unavailable, it is set to the maximum of 10% of `executorMemory` and `384`.
+
+* Creates an internal instance of link:yarn/spark-yarn-ClientDistributedCacheManager.adoc[ClientDistributedCacheManager] (as `distCacheMgr`).
+
+* Sets the variables: `loginFromKeytab` to `false` with `principal`, `keytab`, and `credentials` to `null`.
+
+* Creates an internal instance of `LauncherBackend` (as <<launcherBackend, launcherBackend>>).
+
+* Sets the internal `fireAndForget` flag to the result of `isClusterMode` and not link:spark-yarn-settings.adoc#spark.yarn.submit.waitAppCompletion[spark.yarn.submit.waitAppCompletion].
+
+* Sets the internal variable `appId` to `null`.
+
+* Sets the internal `appStagingBaseDir` to link:spark-yarn-settings.adoc#spark.yarn.stagingDir[spark.yarn.stagingDir] or the home directory of Hadoop.
+
 === [[submitApplication]] Submitting Spark Application to YARN (submitApplication method)
 
 When link:spark-yarn-client-yarnclientschedulerbackend.adoc#start[YarnClientSchedulerBackend starts], it creates a new instance of `Client` and executes `submitApplication`.
@@ -26,20 +64,20 @@ When link:spark-yarn-client-yarnclientschedulerbackend.adoc#start[YarnClientSche
 submitApplication(): ApplicationId
 ----
 
-`submitApplication` submits a Spark application to a YARN cluster (i.e. to the link:spark-yarn-introduction.adoc#ResourceManager[YARN ResourceManager]). It waits until the application is running and eventually returns its unique https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ApplicationId.html[ApplicationId].
+`submitApplication` submits a Spark application (represented by link:spark-yarn-applicationmaster.adoc[ApplicationMaster]) to a YARN cluster (i.e. to the link:spark-yarn-introduction.adoc#ResourceManager[YARN ResourceManager]) and returns the application's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ApplicationId.html[ApplicationId].
 
-NOTE: `submitApplication` is also used in the deprecated <<run, Client.run>>.
+NOTE: `submitApplication` is also used in the currently-deprecated <<run, Client.run>>.
 
 Internally, it executes `LauncherBackend.connect` first and then executes `Client.setupCredentials` to set up credentials for future calls.
 
-It creates a YARN client (using Hadoop's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/client/api/YarnClient.html#createYarnClient()[YarnClient.createYarnClient]), https://hadoop.apache.org/docs/current/api/org/apache/hadoop/service/AbstractService.html#init(org.apache.hadoop.conf.Configuration)[inits it] with a https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/conf/YarnConfiguration.html[YarnConfiguration] and https://hadoop.apache.org/docs/current/api/org/apache/hadoop/service/AbstractService.html#start()[starts it]. All this happens using Hadoop API.
+It then https://hadoop.apache.org/docs/current/api/org/apache/hadoop/service/AbstractService.html#init(org.apache.hadoop.conf.Configuration)[inits] the internal <<yarnClient, yarnClient>> (with the internal `yarnConf`) and https://hadoop.apache.org/docs/current/api/org/apache/hadoop/service/AbstractService.html#start()[starts] it. All this happens using Hadoop API.
 
-CAUTION: FIXME How to configure `YarnClient`? What is `getYarnClusterMetrics`?
+CAUTION: FIXME How to configure `YarnClient`? What is YARN's `YarnClient.getYarnClusterMetrics`?
 
 You should see the following INFO in the logs:
 
 ```
-INFO Client: Requesting a new application from cluster with [yarnClient.getYarnClusterMetrics.getNumNodeManagers] NodeManagers
+INFO Client: Requesting a new application from cluster with [count] NodeManagers
 ```
 
 It then https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/client/api/YarnClient.html#createApplication()[YarnClient.createApplication()] to create a new application in YARN and obtains the application id.
@@ -50,15 +88,89 @@ CAUTION: FIXME Why is this important?
 
 `submitApplication` verifies whether the cluster has resources for the link:spark-yarn-applicationmaster.adoc[ApplicationManager] (using <<verifyClusterResources, verifyClusterResources>>).
 
-It then <<createContainerLaunchContext, createContainerLaunchContext>> and <<createApplicationSubmissionContext, createApplicationSubmissionContext>>.
+It then <<createContainerLaunchContext, creates YARN `ContainerLaunchContext`>> followed by <<createApplicationSubmissionContext, creating YARN `ApplicationSubmissionContext`>>.
 
-It submits the application to YARN ResourceManager.
+You should see the following INFO message in the logs:
 
 ```
-INFO Client: Submitting application [applicationId.getId] to ResourceManager
+INFO Client: Submitting application [appId] to ResourceManager
 ```
 
-And finally submits a new application to YARN (using Hadoop's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/client/api/YarnClient.html#submitApplication(org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext)[YarnClient.submitApplication]) and waits until it is accepted by YARN ResourceManager.
+`submitApplication` submits the new YARN `ApplicationSubmissionContext` for link:spark-yarn-applicationmaster.adoc[ApplicationMaster] to YARN (using Hadoop's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/client/api/YarnClient.html#submitApplication(org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext)[YarnClient.submitApplication]).
+
+It returns the YARN https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ApplicationId.html[ApplicationId] for the Spark application (represented by link:spark-yarn-applicationmaster.adoc[ApplicationMaster]).
+
+=== [[loginFromKeytab]] loginFromKeytab
+
+CAUTION: FIXME
+
+=== [[createApplicationSubmissionContext]] Creating YARN ApplicationSubmissionContext (createApplicationSubmissionContext method)
+
+[source, scala]
+----
+createApplicationSubmissionContext(
+  newApp: YarnClientApplication,
+  containerContext: ContainerLaunchContext): ApplicationSubmissionContext
+----
+
+`createApplicationSubmissionContext` creates YARN's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ApplicationSubmissionContext.html[ApplicationSubmissionContext].
+
+NOTE: YARN's `ApplicationSubmissionContext` represents all of the information needed by the link:spark-yarn-introduction.adoc#ResourceManager[YARN ResourceManager] to launch the link:spark-yarn-applicationmaster.adoc[ApplicationMaster] for a Spark application.
+
+`createApplicationSubmissionContext` uses YARN's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/client/api/YarnClientApplication.html[YarnClientApplication] (as the input `newApp`) to create a `ApplicationSubmissionContext`.
+
+`createApplicationSubmissionContext` sets the following information in the `ApplicationSubmissionContext`:
+
+[align="center"]
+|=======
+| The name of the Spark application | link:../spark-configuration.adoc#spark.app.name[spark.app.name] configuration setting or `Spark` if not set
+| Queue (to which the Spark application is submitted) | link:spark-yarn-settings.adoc#spark.yarn.queue[spark.yarn.queue] configuration setting
+| `ContainerLaunchContext` (that describes the `Container` with which the `ApplicationMaster` for the Spark application is launched) | the input `containerContext`
+| Type of the Spark application | `SPARK`
+| Tags for the Spark application | link:spark-yarn-settings.adoc#spark.yarn.tags[spark.yarn.tags] configuration setting
+| Number of max attempts of the Spark application to be submitted. | link:spark-yarn-settings.adoc#spark.yarn.maxAppAttempts[spark.yarn.maxAppAttempts] configuration setting
+| The `attemptFailuresValidityInterval` in milliseconds for the Spark application | link:spark-yarn-settings.adoc#spark.yarn.am.attemptFailuresValidityInterval[spark.yarn.am.attemptFailuresValidityInterval] configuration setting
+| Resource Capabilities for link:spark-yarn-applicationmaster.adoc[ApplicationMaster] for the Spark application | See <<resource, Resource Capabilities for ApplicationMaster -- Memory and Virtual CPU Cores>> section below
+| Rolled Log Aggregation for the Spark application | See <<LogAggregationContext, Rolled Log Aggregation Configuration for Spark Application>> section below
+|=======
+
+You will see the DEBUG message in the logs when the setting is not set:
+
+```
+DEBUG spark.yarn.maxAppAttempts is not set. Cluster's default value will be used.
+```
+
+==== [[resource]] Resource Capabilities for ApplicationMaster -- Memory and Virtual CPU Cores
+
+NOTE: YARN's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/Resource.html[Resource] models a set of computer resources in the cluster. Currently, YARN supports resources with memory and virtual CPU cores capabilities only.
+
+The requested YARN's `Resource` for the link:spark-yarn-applicationmaster.adoc[ApplicationMaster] for a Spark application is the sum of `amMemory` and `amMemoryOverhead` for the memory and `amCores` for the virtual CPU cores.
+
+Besides, if link:spark-yarn-settings.adoc#spark.yarn.am.nodeLabelExpression[spark.yarn.am.nodeLabelExpression] is set, a new YARN https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ResourceRequest.html[ResourceRequest] is created (for the `ApplicationMaster` container) that includes:
+
+[align="center"]
+|=======
+|Resource Name| `*` (star) that represents no locality.
+|Priority| `0`
+|Capability| The resource capabilities as defined above.
+|Number of containers| `1`
+|Node label expression| link:spark-yarn-settings.adoc#spark.yarn.am.nodeLabelExpression[spark.yarn.am.nodeLabelExpression] configuration setting
+|ResourceRequest of AM container| link:spark-yarn-settings.adoc#spark.yarn.am.nodeLabelExpression[spark.yarn.am.nodeLabelExpression] configuration setting
+|=======
+
+It sets the resource request to this new YARN `ResourceRequest` detailed in the table above.
+
+==== [[LogAggregationContext]] Rolled Log Aggregation for Spark Application
+
+NOTE: YARN's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/LogAggregationContext.html[LogAggregationContext] represents all of the information needed by the link:spark-yarn-introduction.adoc#NodeManager[YARN NodeManager] to handle the logs for an application.
+
+If link:spark-yarn-settings.adoc#spark.yarn.rolledLog.includePattern[spark.yarn.rolledLog.includePattern] is defined, it creates a YARN https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/LogAggregationContext.html[LogAggregationContext] with the following patterns:
+
+[align="center"]
+|=======
+|Include Pattern|link:spark-yarn-settings.adoc#spark.yarn.rolledLog.includePattern[spark.yarn.rolledLog.includePattern] configuration setting
+|Exclude Pattern|link:spark-yarn-settings.adoc#spark.yarn.rolledLog.excludePattern[spark.yarn.rolledLog.excludePattern] configuration setting
+|=======
 
 ==== [[verifyClusterResources]] Verifying Maximum Memory Capability of YARN Cluster (verifyClusterResources private method)
 
@@ -194,6 +306,8 @@ CAUTION: FIXME `setApplicationACLs`? Set up security tokens?
 
 ==== [[prepareLocalResources]] prepareLocalResources method
 
+CAUTION: FIXME
+
 [source, scala]
 ----
 prepareLocalResources(
@@ -203,19 +317,19 @@ prepareLocalResources(
 
 `prepareLocalResources` is...FIXME
 
-CAUTION: FIXME
+CAUTION: FIXME Describe `credentialManager`
 
-When `prepareLocalResources` is called, you should see the following INFO message in the logs:
+When called, `prepareLocalResources` prints out the following INFO message to the logs:
 
 ```
 INFO Client: Preparing resources for our AM container
 ```
 
-(only for a secure Hadoop cluster) It computes the list of Hadoop's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/fs/Path.html[Paths] to access and requests delegation tokens for them. It includes the optional list of extra NameNode URLs (from link:spark-yarn-settings.adoc#spark.yarn.access.namenodes[spark.yarn.access.namenodes]) and the input `destDir`.
-
 CAUTION: FIXME What's a delegation token?
 
-(only for a secure Hadoop cluster) It also obtains delegation tokens for link:yarn/README.adoc#obtainTokenForHiveMetastore[Hive metastore], and link:yarn/README.adoc#obtainTokenForHBase[HBase] (using the constructor's `sparkConf` and `hadoopConf` with the internal `credentials` attribute). After all the security delegation tokens are obtained, you should see the following DEBUG message in the logs:
+`prepareLocalResources` then link:spark-yarn-ConfigurableCredentialManager.adoc#obtainCredentials[obtains security tokens from credential providers and gets the nearest time of the next renewal] (for renewable credentials).
+
+After all the security delegation tokens are obtained and only when there are any, you should see the following DEBUG message in the logs:
 
 ```
 DEBUG Client: [token1]
@@ -226,6 +340,8 @@ DEBUG Client: [tokenN]
 
 CAUTION: FIXME Where is `credentials` assigned?
 
+If <<loginFromKeytab, a keytab is used to log in>> and the nearest time of the next renewal is in the future, `prepareLocalResources` sets the internal link:spark-yarn-settings.adoc#spark.yarn.credentials.renewalTime[spark.yarn.credentials.renewalTime] and link:spark-yarn-settings.adoc#spark.yarn.credentials.updateTime[spark.yarn.credentials.updateTime] times for renewal and update security tokens.
+
 It gets the replication factor (using link:spark-yarn-settings.adoc#spark.yarn.submit.file.replication[spark.yarn.submit.file.replication] setting) or falls back to the default value for the input `destDir`.
 
 NOTE: The replication factor is only used for <<copyFileToRemote, copyFileToRemote>> later. Perhaps it should not be mentioned here (?)
@@ -234,7 +350,7 @@ It creates the input `destDir` (on a HDFS-compatible file system) with `0700` pe
 
 TIP: See https://hadoop.apache.org/docs/current/api/org/apache/hadoop/fs/FileSystem.html[org.apache.hadoop.fs.FileSystem] to know a list of HDFS-compatible file systems, e.g. http://aws.amazon.com/s3/[Amazon S3] or https://azure.microsoft.com/[Windows Azure].
 
-If Spark uses a keytab to log in, ...FIXME
+If <<loginFromKeytab, a keytab is used to log in>>, ...FIXME
 
 CAUTION: FIXME `if (loginFromKeytab)`
 
@@ -272,9 +388,9 @@ CAUTION: FIXME Where are they used? It appears they are required for link:spark-
 
 It uploads `__spark_conf__.zip` to the input `destDir` and sets link:spark-yarn-settings.adoc#spark.yarn.cache.confArchive[spark.yarn.cache.confArchive]
 
-It creates configuration archive (using `createConfArchive`) and `copyFileToRemote(destDir, localConfArchive, replication, force = true, destName = Some(LOCALIZED_CONF_ARCHIVE))`.
+It <<createConfArchive, creates configuration archive>> and `copyFileToRemote(destDir, localConfArchive, replication, force = true, destName = Some(LOCALIZED_CONF_ARCHIVE))`.
 
-CAUTION: FIXME `createConfArchive` and `copyFileToRemote(destDir, localConfArchive, replication, force = true, destName = Some(LOCALIZED_CONF_ARCHIVE))`?
+CAUTION: FIXME `copyFileToRemote(destDir, localConfArchive, replication, force = true, destName = Some(LOCALIZED_CONF_ARCHIVE))`?
 
 It link:spark-yarn-ClientDistributedCacheManager.adoc#addResource[adds a cache-related resource] (using the internal `distCacheMgr`).
 
@@ -287,6 +403,21 @@ The `localResources` are returned.
 CAUTION: FIXME How is `localResources` calculated?
 
 NOTE: It is exclusively used when <<createContainerLaunchContext, Client creates a `ContainerLaunchContext` to launch a `ApplicationMaster` container>>.
+
+==== [[createConfArchive]] Creating ++__spark_conf__.zip++ Archive With Configuration Files and Spark Configuration (createConfArchive private method)
+
+[source, scala]
+----
+createConfArchive(): File
+----
+
+`createConfArchive` is a private helper method that <<prepareLocalResources, prepareLocalResources>> uses to create an archive with the local config files -- `log4j.properties` and `metrics.properties` (before distributing it and the other files for link:spark-yarn-applicationmaster.adoc[ApplicationMaster] and executors to use on a YARN cluster).
+
+The archive will also contain all the files under `HADOOP_CONF_DIR` and `YARN_CONF_DIR` environment variables (if defined).
+
+Additionally, the archive contains a `__spark_conf__.properties` with the current link:spark-configuration.adoc[Spark configuration].
+
+The archive is a temporary file with the `__spark_conf__` prefix and `.zip` extension with the files above.
 
 ==== [[copyFileToRemote]] Copying File to Remote File System (copyFileToRemote helper method)
 
@@ -359,7 +490,7 @@ CAUTION: FIXME
 
 8. All the entries from YARN's `mapreduce.application.classpath` or `MRJobConfig.DEFAULT_MAPREDUCE_APPLICATION_CLASSPATH` (if `mapreduce.application.classpath` not set).
 
-8. link:yarn/README.adoc#SPARK_DIST_CLASSPATH[SPARK_DIST_CLASSPATH] (which is first <<getClusterPath, changed to include paths on YARN cluster machines>>).
+8. link:README.adoc#SPARK_DIST_CLASSPATH[SPARK_DIST_CLASSPATH] (which is first <<getClusterPath, changed to include paths on YARN cluster machines>>).
 
 [TIP]
 ====
@@ -389,7 +520,7 @@ addClasspathEntry(path: String, env: HashMap[String, String]): Unit
 
 `addClasspathEntry` is a private helper method to link:spark-yarn-YarnSparkHadoopUtil.adoc#addPathToEnvironment[add the input `path` to `CLASSPATH` key in the input `env`].
 
-==== [[distribute]] distribute method
+==== [[distribute]] Distributing Files to Remote File System (distribute private method)
 
 [source, scala]
 ----
@@ -401,9 +532,11 @@ distribute(
   appMasterOnly: Boolean = false): (Boolean, String)
 ----
 
-`distribute` is an internal helper method of <<prepareLocalResources, prepareLocalResources>> that...
+`distribute` is an internal helper method that <<prepareLocalResources, prepareLocalResources>> uses to find out whether the input `path` is of `local:` URI scheme and return a localized path for a non-`local` path, or simply the input `path` for a local one.
 
-CAUTION: FIXME
+`distribute` returns a pair with the first element being a flag for the input `path` being local or non-local, and the other element for the local or localized path.
+
+For local `path` that was not distributed already, `distribute` <<copyFileToRemote, copies the input `path` to remote file system>> (if needed) and link:spark-yarn-ClientDistributedCacheManager.adoc#addResource[adds `path` to the application's distributed cache].
 
 === [[buildPath]] Joining Path Components using Path.SEPARATOR (buildPath method)
 
@@ -414,38 +547,30 @@ buildPath(components: String*): String
 
 `buildPath` is a helper method to join all the path `components` using the directory separator, i.e. https://hadoop.apache.org/docs/current/api/org/apache/hadoop/fs/Path.html#SEPARATOR[org.apache.hadoop.fs.Path.SEPARATOR].
 
-=== [[creating-instance]] Creating Client Instance
+=== [[isClusterMode]] isClusterMode Internal Flag
 
-Creating an instance of `Client` does the following:
+`isClusterMode` is an internal flag that says whether the Spark application runs in link:spark-deploy-mode.adoc#cluster[cluster] or link:spark-deploy-mode.adoc#client[client] deploy mode. The flag is enabled for `cluster` deploy mode, i.e. `true`.
 
-* Creates an internal instance of `YarnClient` (using `YarnClient.createYarnClient`) that becomes `yarnClient`.
+NOTE: Since a Spark application requires different settings per deploy mode, `isClusterMode` flag effectively "splits" `Client` on two parts per deploy mode -- one responsible for `client` and the other for `cluster` deploy mode.
 
-* Creates an internal instance of `YarnConfiguration` (using `YarnConfiguration` and the input `hadoopConf`) that becomes `yarnConf`.
+CAUTION: FIXME Replace the internal fields used below with their true meanings.
 
-* Sets the internal `isClusterMode` that says whether link:spark-deploy-mode.adoc#spark.submit.deployMode[spark.submit.deployMode] is link:spark-deploy-mode.adoc#cluster[cluster deploy mode].
+.Internal Attributes of `Client` per Deploy Mode (`isClusterMode` flag)
+[align="center",cols="1,2,2"options="header"]
+|=======
+| Internal attribute | cluster deploy mode | client deploy mode
+| `amMemory` | link:../spark-driver.adoc#spark.driver.memory[spark.driver.memory] | link:spark-yarn-settings.adoc#spark.yarn.am.memory[spark.yarn.am.memory]
+| `amMemoryOverhead` | link:spark-yarn-settings.adoc#spark.yarn.driver.memoryOverhead[spark.yarn.driver.memoryOverhead] | link:spark-yarn-settings.adoc#spark.yarn.am.memoryOverhead[spark.yarn.am.memoryOverhead]
+| `amCores` | link:../spark-driver.adoc#spark.driver.cores[spark.driver.cores] | link:spark-yarn-settings.adoc#spark.yarn.am.cores[spark.yarn.am.cores]
+| `javaOpts` | link:../spark-driver.adoc#spark.driver.extraJavaOptions[spark.driver.extraJavaOptions] | link:spark-yarn-settings.adoc#spark.yarn.am.extraJavaOptions[spark.yarn.am.extraJavaOptions]
+| `libraryPaths` | link:../spark-driver.adoc#spark.driver.extraLibraryPath[spark.driver.extraLibraryPath] and link:../spark-driver.adoc##spark.driver.libraryPath[spark.driver.libraryPath] | link:spark-yarn-settings.adoc#spark.yarn.am.extraLibraryPath[spark.yarn.am.extraLibraryPath]
+| link:spark-yarn-applicationmaster.adoc#command-line-parameters[`--class` command-line argument for `ApplicationMaster`] | `args.userClass` |
+| Application master class | link:spark-yarn-applicationmaster.adoc[org.apache.spark.deploy.yarn.ApplicationMaster] | link:spark-yarn-applicationmaster.adoc[org.apache.spark.deploy.yarn.ExecutorLauncher]
+|=======
 
-[[amMemory]]
-* Sets the internal `amMemory` to link:spark-driver.adoc#spark.driver.memory[spark.driver.memory] when `isClusterMode` is enabled or link:spark-yarn-settings.adoc#spark.yarn.am.memory[spark.yarn.am.memory] otherwise.
+When the `isClusterMode` flag is enabled, the <<yarnClient, internal reference to YARN's `YarnClient`>> is used to stop application.
 
-* Sets the internal `amMemoryOverhead` to link:spark-yarn-settings.adoc#spark.yarn.driver.memoryOverhead[spark.yarn.driver.memoryOverhead] when `isClusterMode` is enabled or link:spark-yarn-settings.adoc#spark.yarn.am.memoryOverhead[spark.yarn.am.memoryOverhead] otherwise. If neither is available, the maximum of 10% of `amMemory` and `384` is chosen.
-
-* Sets the internal `amCores` to link:spark-driver.adoc#spark.driver.cores[spark.driver.cores] when `isClusterMode` is enabled or link:spark-yarn-settings.adoc#spark.yarn.am.cores[spark.yarn.am.cores] otherwise.
-
-* Sets the internal `executorMemory` to link:spark-executor.adoc#spark.executor.memory[spark.executor.memory].
-
-* Sets the internal `executorMemoryOverhead` to link:spark-yarn-settings.adoc#spark.yarn.executor.memoryOverhead[spark.yarn.executor.memoryOverhead]. If unavailable, it is set to the maximum of 10% of `executorMemory` and `384`.
-
-* Creates an internal instance of link:yarn/spark-yarn-ClientDistributedCacheManager.adoc[ClientDistributedCacheManager] (as `distCacheMgr`).
-
-* Sets the variables: `loginFromKeytab` to `false` with `principal`, `keytab`, and `credentials` to `null`.
-
-* Creates an internal instance of `LauncherBackend` (as <<launcherBackend, launcherBackend>>).
-
-* Sets the internal `fireAndForget` flag to the result of `isClusterMode` and not link:spark-yarn-settings.adoc#spark.yarn.submit.waitAppCompletion[spark.yarn.submit.waitAppCompletion].
-
-* Sets the internal variable `appId` to `null`.
-
-* Sets the internal `appStagingBaseDir` to link:spark-yarn-settings.adoc#spark.yarn.stagingDir[spark.yarn.stagingDir] or the home directory of Hadoop.
+When the `isClusterMode` flag is enabled (and link:spark-yarn-settings.adoc#spark.yarn.submit.waitAppCompletion[spark.yarn.submit.waitAppCompletion] is disabled), so is `fireAndForget` internal flag.
 
 === [[launcherBackend]] launcherBackend value
 
@@ -461,7 +586,7 @@ CAUTION: FIXME Where is `SPARK_` prefix rule enforced?
 
 NOTE: `SPARK_YARN_MODE` is a system property (i.e. available using `System.getProperty`) and a environment variable (i.e. available using `System.getenv` or `sys.env`). See link:spark-yarn-YarnSparkHadoopUtil.adoc[YarnSparkHadoopUtil].
 
-It is enabled (i.e. `true`) when link:spark-sparkcontext-creating-instance-internals.adoc#SPARK_YARN_MODE[SparkContext is created for Spark on YARN in client deploy mode], when <<setupLaunchEnv, Client...FIXME>> and <<main, a Spark application is deployed to a YARN cluster>>.
+It is enabled (i.e. `true`) when link:spark-sparkcontext-creating-instance-internals.adoc#SPARK_YARN_MODE[SparkContext is created for Spark on YARN in client deploy mode], when <<setupLaunchEnv, `Client` sets up an environment to launch `ApplicationMaster` container>> (and, what is currently considered deprecated, <<main, a Spark application was deployed to a YARN cluster>>).
 
 CAUTION: FIXME Why is this needed? `git blame` it.
 
@@ -479,7 +604,16 @@ CAUTION: FIXME
 
 === [[yarnClient]] Internal Hadoop's YarnClient (yarnClient value)
 
-CAUTION: FIXME
+[source, scala]
+----
+val yarnClient = YarnClient.createYarnClient
+----
+
+`yarnClient` is a private internal reference to Hadoop's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/client/api/YarnClient.html[YarnClient] that `Client` uses to <<submitApplication, create and submit a YARN application>> (for your Spark application),  <<launcherBackend, killApplication>>.
+
+`yarnClient` is inited and started when <<submitApplication, `Client` submits a Spark application to a YARN cluster>>.
+
+`yarnClient` is stopped when <<stop, `Client` stops>>.
 
 === [[main]] main
 
@@ -507,7 +641,9 @@ It then instantiates link:spark-configuration.adoc[SparkConf], parses command-li
 stop(): Unit
 ----
 
-`stop` closes the internal <<launcherBackend, LauncherBackend>> and stops the internal <<yarnClient, yarnClient>>. It also clears <<SPARK_YARN_MODE, SPARK_YARN_MODE flag>> (to allow switching between cluster types).
+`stop` closes the internal <<launcherBackend, LauncherBackend>> and stops the internal <<yarnClient, yarnClient>>.
+
+It also clears <<SPARK_YARN_MODE, SPARK_YARN_MODE flag>> (to allow switching between cluster types).
 
 === [[run]] run
 
@@ -611,7 +747,5 @@ reportLauncherState(state: SparkAppHandle.State): Unit
 `reportLauncherState` merely passes the call on to `LauncherBackend.setState`.
 
 CAUTION: What does `setState` do?
-
-=== [[createApplicationSubmissionContext]] createApplicationSubmissionContext
 
 === [[ClientArguments]] ClientArguments
