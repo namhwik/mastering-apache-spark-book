@@ -1,8 +1,8 @@
-== DataFrame (aka Dataset[Row])
+== DataFrame -- Dataset of Rows
 
-A *DataFrame* is a data abstraction or a domain-specific language (DSL) for working with *structured* and *semi-structured data*, i.e. datasets with a schema. A DataFrame is thus a collection of link:spark-sql-dataframe-row.adoc[rows] with a schema.
+A *DataFrame* is a data abstraction or a domain-specific language (DSL) for working with *structured* and *semi-structured data*, i.e. datasets with a schema. A DataFrame is thus a collection of link:spark-sql-dataframe-row.adoc[rows] with a link:spark-sql-schema.adoc[schema].
 
-It uses the immutable, in-memory, resilient, distributed and parallel capabilities of link:spark-rdd.adoc[RDD], and puts a link:spark-sql-dataframe-schema.adoc[schema] on the data.
+It uses the immutable, in-memory, resilient, distributed and parallel capabilities of link:spark-rdd.adoc[RDD], and applies a structure called schema to the data.
 
 [NOTE]
 ====
@@ -75,9 +75,9 @@ You can enforce types on link:spark-sql-dataframe-row.adoc[generic rows] and hen
 
 === [[features]] Features of DataFrame
 
-A `DataFrame` is a collection of "generic" link:spark-sql-dataframe-row.adoc[Row] instances (as `RDD[Row]`) and a link:spark-sql-dataframe-schema.adoc[schema].
+A `DataFrame` is a collection of "generic" link:spark-sql-dataframe-row.adoc[Row] instances (as `RDD[Row]`) and a link:spark-sql-schema.adoc[schema].
 
-NOTE: Regardless of how you create a `DataFrame`, it will always be a pair of `RDD[Row]` and link:spark-sql-dataframe-structtype.adoc[StructType].
+NOTE: Regardless of how you create a `DataFrame`, it will always be a pair of `RDD[Row]` and link:spark-sql-schema.adoc#StructType[StructType].
 
 === [[as]] Enforcing Types (as method)
 
@@ -103,40 +103,6 @@ final case class MyRecord(id: Int, token: String)
 
 scala> val myRecords = df.as[MyRecord]
 myRecords: org.apache.spark.sql.Dataset[MyRecord] = [id: int, token: string]
-----
-
-=== [[withColumn]] Adding Column using withColumn
-
-[source, scala]
-----
-withColumn(colName: String, col: Column): DataFrame
-----
-
-`withColumn` method returns a new DataFrame with the new column `col` with `colName` name added.
-
-NOTE: `withColumn` can replace an existing `colName` column.
-
-[source, scala]
-----
-scala> val df = Seq((1, "jeden"), (2, "dwa")).toDF("number", "polish")
-df: org.apache.spark.sql.DataFrame = [number: int, polish: string]
-
-scala> df.show
-+------+------+
-|number|polish|
-+------+------+
-|     1| jeden|
-|     2|   dwa|
-+------+------+
-
-
-scala> df.withColumn("polish", lit(1)).show
-+------+------+
-|number|polish|
-+------+------+
-|     1|     1|
-|     2|     1|
-+------+------+
 ----
 
 === [[write]] Writing DataFrames to External Storage (write method)

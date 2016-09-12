@@ -227,15 +227,15 @@ NOTE: It is used by <<BlockManagerSlaveEndpoint-RemoveRdd, BlockManagerSlaveEndp
 removeBroadcast(broadcastId: Long, tellMaster: Boolean): Int
 ----
 
-`removeBroadcast` removes all the blocks that belong to the `broadcastId` broadcast.
+`removeBroadcast` removes all the blocks of the input `broadcastId` broadcast.
 
-It prints out the following DEBUG message to the logs:
+Internally, it starts by printing out the following DEBUG message to the logs:
 
 ```
 DEBUG Removing broadcast [broadcastId]
 ```
 
-It then requests all `BroadcastBlockId` objects that belong to the `broadcastId` broadcast from link:spark-BlockInfoManager.adoc[BlockInfoManager] and <<removeBlock, removes them (from memory and disk)>>.
+It then requests all the link:spark-blockdatamanager.adoc#BroadcastBlockId[BroadcastBlockId] objects that belong to the `broadcastId` broadcast from link:spark-BlockInfoManager.adoc[BlockInfoManager] and <<removeBlock, removes them (from memory and disk)>>.
 
 The number of blocks removed is the final result.
 
@@ -252,7 +252,7 @@ A `BlockManager` needs the following services to be created:
 * `executorId` (for the driver and executors)
 * link:spark-rpc.adoc[RpcEnv]
 * link:spark-BlockManagerMaster.adoc[BlockManagerMaster]
-* `SerializerManager`
+* link:spark-SerializerManager.adoc[SerializerManager]
 * link:spark-configuration.adoc[SparkConf]
 * link:spark-MemoryManager.adoc[MemoryManager]
 * link:spark-service-mapoutputtracker.adoc[MapOutputTracker]
@@ -718,7 +718,7 @@ NOTE: `BlockManagerSlaveEndpoint` uses Java's https://docs.oracle.com/javase/8/d
 
 === [[broadcast]] Broadcast Values
 
-When a new broadcast value is created, `TorrentBroadcast` - the default implementation of `Broadcast` - blocks are put in the block manager. See link:spark-service-broadcastmanager.adoc#TorrentBroadcast[TorrentBroadcast].
+When a new broadcast value is created, link:spark-broadcast.adoc#TorrentBroadcast[TorrentBroadcast] blocks are put in the block manager.
 
 You should see the following `TRACE` message:
 
@@ -768,16 +768,3 @@ It emits the following numbers:
 The underlying abstraction for blocks in Spark is a `ByteBuffer` that limits the size of a block to 2GB (`Integer.MAX_VALUE` - see http://stackoverflow.com/q/8076472/1305344[Why does FileChannel.map take up to Integer.MAX_VALUE of data?] and https://issues.apache.org/jira/browse/SPARK-1476[SPARK-1476 2GB limit in spark for blocks]). This has implication not just for managed blocks in use, but also for shuffle blocks (memory mapped blocks are limited to 2GB, even though the API allows for `long`), ser-deser via byte array-backed output streams.
 
 When a non-local executor starts, it initializes a `BlockManager` object for the `spark.app.id` id.
-
-=== [[settings]] Settings
-
-* `spark.broadcast.compress` (default: `true`) whether to compress stored broadcast variables.
-
-* `spark.shuffle.compress` (default: `true`) whether to compress stored shuffle output.
-
-* `spark.rdd.compress` (default: `false`) whether to compress RDD partitions that are stored serialized.
-
-* `spark.shuffle.spill.compress` (default: `true`) whether to compress shuffle output temporarily spilled to disk.
-
-[[spark.block.failures.beforeLocationRefresh]]
-* `spark.block.failures.beforeLocationRefresh` (default: `5`).

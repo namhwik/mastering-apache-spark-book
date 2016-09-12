@@ -1,10 +1,8 @@
 == SessionState
 
-`SessionState` is the <<sessionState, default separation layer>> for isolating state across sessions, including SQL configuration, tables, functions, UDFs, the link:spark-sql-sql-parsers.adoc#SparkSqlParser[SQL parser], and everything else that depends on a link:spark-sql-SQLConf.adoc[SQLConf].
+`SessionState` is the <<sessionState, state separation layer>> between sessions, including SQL configuration, tables, functions, UDFs, the link:spark-sql-sql-parsers.adoc#SparkSqlParser[SQL parser], and everything else that depends on a link:spark-sql-SQLConf.adoc[SQLConf].
 
-CAUTION: FIXME Elaborate please.
-
-It requires a link:spark-sql-sparksession.adoc[SparkSession] and manages its own link:spark-sql-SQLConf.adoc[SQLConf].
+It uses a link:spark-sql-sparksession.adoc[SparkSession] and manages its own link:spark-sql-SQLConf.adoc[SQLConf].
 
 NOTE: Given the package `org.apache.spark.sql.internal` that `SessionState` belongs to, this one is truly _internal_. You've been warned.
 
@@ -20,6 +18,7 @@ NOTE: `SessionState` is a `private[sql]` class.
 * <<newHadoopConf, newHadoopConf>> to create a new Hadoop's `Configuration`.
 * link:spark-sql-sparksession.adoc#sessionState[sessionState]
 * link:spark-sql-sql-parsers.adoc#SparkSqlParser[sqlParser]
+* <<executePlan, executePlan>>
 
 === [[catalog]] catalog Attribute
 
@@ -43,18 +42,18 @@ It is used to create the shared <<analyzer, analyzer>>, <<optimizer, optimizer>>
 analyzer: Analyzer
 ----
 
-`analyzer` is...
+`analyzer` is the link:spark-sql-catalyst-analyzer.adoc[Analyzer] for the current Spark SQL session.
 
-=== [[optimizer]] optimizer Attribute
+=== [[optimizer]] Accessing Catalyst Query Optimizer -- `optimizer` Attribute
 
 [source, scala]
 ----
 optimizer: Optimizer
 ----
 
-`optimizer` is an optimizer for link:spark-sql-logical-plan.adoc[logical query plans].
+`optimizer` is a Spark session's link:spark-sql-catalyst.adoc[Catalyst query optimizer] for link:spark-sql-logical-plan.adoc[logical query plans].
 
-It is (lazily) set to link:link:spark-sql-catalyst.adoc#SparkOptimizer[SparkOptimizer] that is a specialization of link:spark-sql-catalyst.adoc[Catalyst optimizer]. It is created for the session-owned <<catalog, SessionCatalog>>, link:spark-sql-SQLConf.adoc[SQLConf], and <<experimentalMethods, ExperimentalMethods>>.
+It is (lazily) set to link:link:spark-sql-catalyst.adoc#SparkOptimizer[SparkOptimizer] (that adds additional optimization batches). It is created for the session-owned <<catalog, SessionCatalog>>, link:spark-sql-SQLConf.adoc[SQLConf], and `ExperimentalMethods` (as defined in <<experimentalMethods, experimentalMethods>> attribute).
 
 === [[experimentalMethods]] experimentalMethods
 
@@ -66,9 +65,11 @@ It is (lazily) set to link:link:spark-sql-catalyst.adoc#SparkOptimizer[SparkOpti
 
 === [[planner]] planner method
 
-`planner` is...
+`planner` is the link:spark-sql-queryplanner.adoc#SparkPlanner[SparkPlanner] for the current session.
 
-=== [[executePlan]] executePlan method
+Whenever called, `planner` returns a new `SparkPlanner` instance with the link:spark-sparkcontext.adoc[SparkContext] of the current link:spark-sql-sparksession.adoc[SparkSession], the <<conf, SQLConf>>, and a collection of extra link:spark-sql-queryplanner.adoc#SparkStrategies[SparkStrategies] (via <<experimentalMethods, experimentalMethods>> attribute).
+
+=== [[executePlan]] Preparing Logical Plan for Execution (executePlan method)
 
 [source, scala]
 ----

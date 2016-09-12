@@ -1,6 +1,17 @@
 == [[QueryExecution]] Query Execution
 
-`QueryExecution` is a part of link:spark-sql-dataset.adoc[Dataset] and represents the query execution that will eventually produce the data in a `Dataset`.
+`QueryExecution` is a part of the public link:spark-sql-dataset.adoc[Dataset] API and represents the query execution that will eventually produce the data in a `Dataset`.
+
+[NOTE]
+====
+You can access the `QueryExecution` of a `Dataset` using link:spark-sql-dataset.adoc#queryExecution[queryExecution] attribute.
+
+[source, scala]
+----
+val spark: SparkSession = ...
+spark.emptyDataset[Long].queryExecution
+----
+====
 
 `QueryExecution` is the result of link:spark-sql-sessionstate.adoc#executePlan[executing a `LogicalPlan` in a `SparkSession`] (and so you could create a `Dataset` from a `LogicalPlan` or use the `QueryExecution` after executing the `LogicalPlan`).
 
@@ -8,7 +19,7 @@
 
 A streaming variant of `QueryExecution` is <<IncrementalExecution, IncrementalExecution>>.
 
-<<debug, `debug` package object>> contains methods for *debugging query execution* that you can use to do the full analysis of your queries (as `Dataset` objects).
+link:spark-sql-debugging-execution.adoc[`debug` package object] contains methods for *debugging query execution* that you can use to do the full analysis of your queries (as `Dataset` objects).
 
 CAUTION: FIXME What's `planner`? `analyzed`? Why do we need `assertAnalyzed` and `assertSupported`?
 
@@ -47,33 +58,80 @@ class QueryExecution(
 
 `QueryExecution` requires a link:spark-sql-sparksession.adoc[SparkSession] and a link:spark-sql-logical-plan.adoc[LogicalPlan].
 
+=== [[planner]] Accessing SparkPlanner (planner method)
+
+[source, scala]
+----
+planner: SparkPlanner
+----
+
+`planner` returns link:spark-sql-queryplanner.adoc#SparkPlanner[SparkPlanner].
+
+`planner` is merely to expose internal link:spark-sql-sessionstate.adoc#planner[planner] (in the current link:spark-sql-sessionstate.adoc[SessionState]).
+
 === [[lazy-attributes]] Lazy Attributes
 
-`QueryExecution` holds the following lazy attributes (that are initializes when first read):
+`QueryExecution` holds lazy attributes that are initializes at the first read.
 
 ==== [[analyzed]] analyzed Attribute
 
-`analyzed` being a `LogicalPlan` that is the input `logical` with unresolved attributes and relations resolved.
+`analyzed` lazy value is a link:spark-sql-spark-plan.adoc[SparkPlan] that is a result of executing the input `logical` logical plan by the current `Analyzer` (of the current link:spark-sql-sparksession.adoc[SparkSession]).
+
+NOTE: `Analyzer` resolves unresolved attributes and relations to typed objects using information in a `SessionCatalog` and `FunctionRegistry`.
 
 ==== [[withCachedData]] withCachedData Attribute
 
 `withCachedData` being a `LogicalPlan` that is the `analyzed` plan after being analyzed, checked (for unsupported operations) and replaced with cached segments.
 
-==== [[optimizedPlan]] Optimized Logical Query Plan (optimizedPlan Attribute)
+==== [[optimizedPlan]] Optimized Logical Query Plan -- `optimizedPlan` Attribute
 
-`optimizedPlan` is the `LogicalPlan` (of a query) that is a result of executing the session-owned link:spark-sql-sessionstate.adoc#optimizer[Optimizer] to <<withCachedData, withCachedData>>.
+`optimizedPlan` is the `LogicalPlan` (of a structured query) being the result of executing the session-owned link:spark-sql-sessionstate.adoc#optimizer[Catalyst Query Optimizer] to <<withCachedData, withCachedData>>.
 
 ==== [[sparkPlan]] sparkPlan Attribute
 
-`sparkPlan` being a `SparkPlan` that was computed using `planner` on `optimizedPlan`.
+`sparkPlan` is the link:spark-sql-spark-plan.adoc[SparkPlan] that is the result of requesting <<planner, SparkPlanner>> to plan a <<optimizedPlan, optimized logical query plan>>.
+
+NOTE: In fact, the result `SparkPlan` is the first Spark query plan from the collection of possible query plans from <<planner, SparkPlanner>>.
 
 ==== [[executedPlan]] executedPlan Attribute
 
-`executedPlan` being a `SparkPlan` that is `sparkPlan` prepared for execution by inserting shuffle operations and internal row format conversions where needed.
+`executedPlan` attribute is computed lazily and represents a link:spark-sql-spark-plan.adoc[SparkPlan] ready for execution. It is the <<sparkPlan, sparkPlan>> plan with all the <<preparations, preparation rules>> applied.
+
+[source, scala]
+----
+val dataset: Dataset[Long] = ...
+dataset.queryExecution.executedPlan
+----
 
 ==== [[toRdd]] toRdd Attribute
 
-`toRdd` being a `RDD[InternalRow]`.
+`toRdd` is the `RDD[InternalRow]` that is the result of executing <<executedPlan, executedPlan>> plan, i.e.
+
+[source, scala]
+----
+executedPlan.execute()
+----
+
+TIP: link:spark-sql-InternalRow.adoc[InternalRow] is the internal optimized binary row format.
+
+=== [[preparations]] preparations -- SparkPlan Optimization Rules (to apply before Query Execution)
+
+`preparations` is a sequence of link:spark-sql-spark-plan.adoc[SparkPlan] optimization rules.
+
+TIP: A `SparkPlan` optimization rule transforms a `SparkPlan` to another `SparkPlan`.
+
+This collection is an intermediate phase of query execution that developers can used to introduce further optimizations.
+
+The current list of `SparkPlan` transformations in `preparations` is as follows:
+
+1. `ExtractPythonUDFs`
+2. `PlanSubqueries`
+3. `EnsureRequirements`
+4. `CollapseCodegenStages`
+5. `ReuseExchange`
+6. `ReuseSubquery`
+
+NOTE: The transformation rules applied in order to the physical plan before execution, i.e. they generate a `SparkPlan` when <<executedPlan, executedPlan>> lazy value is accessed.
 
 === [[IncrementalExecution]] IncrementalExecution
 
@@ -88,91 +146,3 @@ Stateful operators in the query plan are numbered using `operatorId` that starts
 `IncrementalExecution` adds one `Rule[SparkPlan]` called `state` to <<preparations, preparations>> sequence of rules as the first element.
 
 CAUTION: FIXME What does `IncrementalExecution` do? Where is it used?
-
-=== [[preparations]] preparations - Rules to apply before Query Execution
-
-It contains a sequence of rules called `preparations` (of type `Seq[Rule[SparkPlan]]`) that will be applied in order to the physical plan before execution, i.e. generates `SparkPlan` by executing <<executedPlan, executedPlan>> lazy value.
-
-`preparations` rules are meant to allow access to the intermediate phases of query execution for developers.
-
-=== [[executedPlan]] executedPlan SparkPlan
-
-`executedPlan` lazy value is a `SparkPlan` ready for execution after applying <<preparations, the rules in preparations>>.
-
-=== [[debug]] Debugging Query Execution
-
-`debug` package object contains methods for *debugging query execution* that you can use to do the full analysis of your queries (as `Dataset` objects).
-
-[source, scala]
-----
-debug()
-debugCodegen()
-----
-
-The `debug` package object belongs to `org.apache.spark.sql.execution.debug` package
-
-Import the package and do the full analysis using `debug` method.
-
-[source, scala]
-----
-import org.apache.spark.sql.execution.debug._
-
-scala> spark.range(10).where('id === 4).debug
-Results returned: 1
-== WholeStageCodegen ==
-Tuples output: 1
- id LongType: {java.lang.Long}
-== Filter (id#12L = 4) ==
-Tuples output: 0
- id LongType: {}
-== Range (0, 10, splits=8) ==
-Tuples output: 0
- id LongType: {}
-----
-
-You can also perform `debugCodegen`.
-
-[source, scala]
-----
-import org.apache.spark.sql.execution.debug._
-
-scala> spark.range(10).where('id === 4).debugCodegen
-Found 1 WholeStageCodegen subtrees.
-== Subtree 1 / 1 ==
-*Filter (id#8L = 4)
-+- *Range (0, 10, splits=8)
-
-Generated code:
-/* 001 */ public Object generate(Object[] references) {
-/* 002 */   return new GeneratedIterator(references);
-/* 003 */ }
-/* 004 */
-/* 005 */ /**
- * Codegend pipeline for
- * Filter (id#8L = 4)
- * +- Range (0, 10, splits=8)
- */
-...
-----
-
-[source, scala]
-----
-scala> spark.range(1, 1000).select('id+1+2+3, 'id+4+5+6).queryExecution.debug.codegen()
-Found 1 WholeStageCodegen subtrees.
-== Subtree 1 / 1 ==
-*Project [(((id#0L + 1) + 2) + 3) AS (((id + 1) + 2) + 3)#3L,(((id#0L + 4) + 5) + 6) AS (((id + 4) + 5) + 6)#4L]
-+- *Range (1, 1000, splits=8)
-
-Generated code:
-/* 001 */ public Object generate(Object[] references) {
-/* 002 */   return new GeneratedIterator(references);
-/* 003 */ }
-/* 004 */
-/* 005 */ /**
- * Codegend pipeline for
-...
-/* 111 */       if (shouldStop()) return;
-/* 112 */     }
-/* 113 */   }
-/* 114 */ }
-----

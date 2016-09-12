@@ -1,15 +1,30 @@
-== Dataset
+== Datasets -- Strongly-Typed DataFrames with Encoders
 
-*Dataset* is the Spark SQL API for working with structured data, i.e. records with a known schema.
+*Dataset* is Spark SQL's strongly-typed API for working with structured data, i.e. records with a known link:spark-sql-schema.adoc[schema].
 
-Datasets are "lazy" and computations are only triggered when an action is invoked. Internally, a `Dataset` represents a link:spark-sql-logical-plan.adoc[logical plan] that describes the computation required to produce the data (for a given link:spark-sql-sparksession.adoc[Spark SQL session]).
+Datasets are _lazy_ and structured query expressions are only triggered when an action is invoked. Internally, a `Dataset` represents a link:spark-sql-logical-plan.adoc[logical plan] that describes the computation query required to produce the data (for a given link:spark-sql-sparksession.adoc[Spark SQL session]).
 
 .Dataset's Internals
 image::images/spark-sql-Dataset.png[align="center"]
 
-It is fair to say that a Dataset is a result of executing an expression against data storage like files or databases. The expression can be described by a SQL query or a Scala/Java lambda function.
+A Dataset is a result of executing a query expression against data storage like files, Hive tables or JDBC databases. The structured query expression can be described by a SQL query, a Column-based SQL expression or a Scala/Java lambda function. And that is why Dataset operations are available in three variants.
 
-Dataset API comes with declarative and type-safe operators (that improves on the earlier experience of data processing using link:spark-sql-dataframe.adoc[DataFrames] that were a set of link:spark-sql-dataframe-row.adoc[Rows]).
+[source, scala]
+----
+scala> val dataset = (0 to 4).toDS
+dataset: org.apache.spark.sql.Dataset[Int] = [value: int]
+
+// Variant 1: filter operator accepts a Scala function
+dataset.filter(n => n % 2 == 0).count
+
+// Variant 2: filter operator accepts a Column-based SQL expression
+dataset.filter('value % 2 === 0).count
+
+// Variant 3: filter operator accepts a SQL query
+dataset.filter("value % 2 = 0").count
+----
+
+The Dataset API offers declarative and type-safe operators that makes for an improved experience for data processing (comparing to link:spark-sql-dataframe.adoc[DataFrames] that were a set of index- or column name-based link:spark-sql-dataframe-row.adoc[Rows]).
 
 [NOTE]
 ====
@@ -27,25 +42,198 @@ See https://github.com/apache/spark/blob/master/sql/core/src/main/scala/org/apac
 
 `Dataset` offers convenience of RDDs with the performance optimizations of DataFrames and the strong static type-safety of Scala. The last feature of bringing the strong type-safety to link:spark-sql-dataframe.adoc[DataFrame] makes Dataset so appealing. All the features together give you a more functional programming interface to work with structured data.
 
+[source, scala]
+----
+scala> spark.range(1).filter('id === 0).explain(true)
+== Parsed Logical Plan ==
+'Filter ('id = 0)
++- Range (0, 1, splits=8)
+
+== Analyzed Logical Plan ==
+id: bigint
+Filter (id#51L = cast(0 as bigint))
++- Range (0, 1, splits=8)
+
+== Optimized Logical Plan ==
+Filter (id#51L = 0)
++- Range (0, 1, splits=8)
+
+== Physical Plan ==
+*Filter (id#51L = 0)
++- *Range (0, 1, splits=8)
+
+scala> spark.range(1).filter(_ == 0).explain(true)
+== Parsed Logical Plan ==
+'TypedFilter <function1>, class java.lang.Long, [StructField(value,LongType,true)], unresolveddeserializer(newInstance(class java.lang.Long))
++- Range (0, 1, splits=8)
+
+== Analyzed Logical Plan ==
+id: bigint
+TypedFilter <function1>, class java.lang.Long, [StructField(value,LongType,true)], newInstance(class java.lang.Long)
++- Range (0, 1, splits=8)
+
+== Optimized Logical Plan ==
+TypedFilter <function1>, class java.lang.Long, [StructField(value,LongType,true)], newInstance(class java.lang.Long)
++- Range (0, 1, splits=8)
+
+== Physical Plan ==
+*Filter <function1>.apply
++- *Range (0, 1, splits=8)
+----
+
 It is only with Datasets to have syntax and analysis checks at compile time (that was not possible using link:spark-sql-dataframe.adoc[DataFrame], regular SQL queries or even RDDs).
 
 Using `Dataset` objects turns `DataFrames` of link:spark-sql-dataframe-row.adoc[Row] instances into a `DataFrames` of case classes with proper names and types (following their equivalents in the case classes). Instead of using indices to access respective fields in a DataFrame and cast it to a type, all this is automatically handled by Datasets and checked by the Scala compiler.
 
 Datasets use link:spark-sql-catalyst.adoc[Catalyst Query Optimizer] and link:spark-sql-tungsten.adoc[Tungsten] to optimize query performance.
 
-A `Dataset` object requires a link:spark-sql-sqlcontext.adoc[SQLContext], a link:spark-sql-query-execution.adoc[QueryExecution], and an link:spark-sql-Encoder.adoc[Encoder]. link:spark-sql-sqlcontext.adoc#creating-datasets[In same cases], a `Dataset` can also be seen as a pair of link:spark-sql-logical-plan.adoc[LogicalPlan] in a given link:spark-sql-sqlcontext.adoc[SQLContext].
+A `Dataset` object requires a link:spark-sql-sparksession.adoc[SparkSession], a link:spark-sql-query-execution.adoc[QueryExecution] plan, and an link:spark-sql-Encoder.adoc[Encoder] (for fast serialization to and deserialization from link:spark-sql-InternalRow.adoc[InternalRow]).
 
-NOTE: `SQLContext` and link:spark-sql-query-execution.adoc[QueryExecution] are transient and hence do not participate in Dataset serialization. The only _firmly-tied_ feature of a Dataset is the link:spark-sql-Encoder.adoc[Encoder].
+If however a link:spark-sql-logical-plan.adoc[LogicalPlan] is used to <<creating-instance, create a `Dataset`>>, the logical plan is first link:spark-sql-sessionstate.adoc#executePlan[executed] (using the current link:spark-sql-sessionstate.adoc#executePlan[SessionState] in the `SparkSession`) that yields the link:spark-sql-query-execution.adoc[QueryExecution] plan.
 
 A `Dataset` is <<Queryable, Queryable>> and `Serializable`, i.e. can be saved to a persistent storage.
 
+NOTE: link:spark-sql-sparksession.adoc[SparkSession] and link:spark-sql-query-execution.adoc[QueryExecution] are transient attributes of a `Dataset` and therefore do not participate in Dataset serialization. The only _firmly-tied_ feature of a `Dataset` is the link:spark-sql-Encoder.adoc[Encoder].
+
 It also has a <<schema, schema>>.
 
-You can convert a type-safe Dataset to a "untyped" DataFrame (see <<implicits, Type Conversions to Dataset[T]>>) or access the RDD that sits underneath (see <<rdd, Converting Datasets into RDDs (using rdd method)>>). It is supposed to give you a more pleasant experience while transitioning from legacy RDD-based or DataFrame-based APIs.
+You can convert a type-safe Dataset to a "untyped" DataFrame (see <<implicits, Type Conversions to Dataset[T]>>) or access the RDD that sits underneath (see <<rdd, Converting Datasets into RDDs (using rdd method)>>). It is supposed to give you a more pleasant experience while transitioning from the legacy RDD-based or DataFrame-based APIs you may have used in the earlier versions of Spark SQL or encourage migrating from Spark Core's RDD API to Spark SQL's Dataset API.
 
 The default storage level for `Datasets` is link:spark-rdd-caching.adoc[MEMORY_AND_DISK] because recomputing the in-memory columnar representation of the underlying table is expensive. See <<persist, Persisting Dataset (persist method)>> in this document.
 
-Spark 2.0 has introduced a new query model called link:spark-sql-structured-streaming.adoc[Structured Streaming] for continuous incremental execution of structured queries. That made possible to consider Datasets a static and bounded data as well as streaming and unbounded with one single API.
+Spark 2.0 has introduced a new query model called link:spark-sql-structured-streaming.adoc[Structured Streaming] for continuous incremental execution of structured queries. That made possible to consider Datasets a static and bounded as well as streaming and unbounded data sets with a single unified API for different execution models.
+
+=== [[queryExecution]] queryExecution Attribute
+
+`queryExecution` is a required parameter of a `Dataset`.
+
+[source, scala]
+----
+val dataset: Dataset[Int] = ...
+dataset.queryExecution
+----
+
+It is a part of the Developer API of the `Dataset` class.
+
+=== [[creating-instance]] Creating Datasets
+
+If link:spark-sql-logical-plan.adoc[LogicalPlan] is used to <<creating-instance, create a `Dataset`>>, it is link:spark-sql-sessionstate.adoc#executePlan[executed] (using the current link:spark-sql-sessionstate.adoc#executePlan[SessionState]) to create a corresponding link:spark-sql-query-execution.adoc[QueryExecution].
+
+=== [[col]] Creating Column -- col method
+
+[source, scala]
+----
+val spark: SparkSession = ...
+case class Word(id: Long, text: String)
+val dataset = Seq(Word(0, "hello"), Word(1, "spark")).toDS
+
+scala> val textCol = dataset.col("text")
+textCol: org.apache.spark.sql.Column = text
+----
+
+=== [[apply]] Creating Column -- apply method
+
+[source, scala]
+----
+val spark: SparkSession = ...
+case class Word(id: Long, text: String)
+val dataset = Seq(Word(0, "hello"), Word(1, "spark")).toDS
+
+scala> val idCol = dataset.apply("id")
+idCol: org.apache.spark.sql.Column = id
+
+// or using Scala's magic a little bit
+// the following is equivalent to the above explicit apply call
+scala> val idCol = dataset("id")
+idCol: org.apache.spark.sql.Column = id
+----
+
+=== [[withColumn]] Adding Column -- withColumn method
+
+[source, scala]
+----
+withColumn(colName: String, col: Column): DataFrame
+----
+
+`withColumn` method returns a new DataFrame with the new column `col` with `colName` name added.
+
+NOTE: `withColumn` can replace an existing `colName` column.
+
+[source, scala]
+----
+scala> val df = Seq((1, "jeden"), (2, "dwa")).toDF("number", "polish")
+df: org.apache.spark.sql.DataFrame = [number: int, polish: string]
+
+scala> df.show
++------+------+
+|number|polish|
++------+------+
+|     1| jeden|
+|     2|   dwa|
++------+------+
+
+
+scala> df.withColumn("polish", lit(1)).show
++------+------+
+|number|polish|
++------+------+
+|     1|     1|
+|     2|     1|
++------+------+
+----
+
+=== [[write]] Accessing DataFrameWriter (write method)
+
+[source, scala]
+----
+write: DataFrameWriter[T]
+----
+
+`write` method returns link:spark-sql-dataframewriter.adoc[DataFrameWriter] for records of type `T`.
+
+[source, scala]
+----
+import org.apache.spark.sql.{DataFrameWriter, Dataset}
+val ints: Dataset[Int] = (0 to 5).toDS
+
+val writer: DataFrameWriter[Int] = ints.write
+----
+
+=== [[writeStream]] Accessing DataStreamWriter (writeStream method)
+
+[source, scala]
+----
+writeStream: DataStreamWriter[T]
+----
+
+`writeStream` method returns link:spark-sql-streaming-DataStreamWriter.adoc[DataStreamWriter] for records of type `T`.
+
+[source, scala]
+----
+val papers = spark.readStream.text("papers").as[String]
+
+import org.apache.spark.sql.streaming.DataStreamWriter
+val writer: DataStreamWriter[String] = papers.writeStream
+----
+
+=== [[show]] Display Records (show methods)
+
+CAUTION: FIXME
+
+Internally, `show` relays to a private `showString` to do the formatting. It turns the `Dataset` into a `DataFrame` (by calling `toDF()`) and <<take, takes first `n` records>>.
+
+=== [[take]] Taking First n Records (take method)
+
+[source, scala]
+----
+take(n: Int): Array[T]
+----
+
+`take` is an action on a `Dataset` that returns a collection of `n` records.
+
+WARNING: `take` loads all the data into the memory of the Spark application's driver process and for a large `n` could result in `OutOfMemoryError`.
+
+Internally, `take` creates a new `Dataset` with `Limit` logical plan for `Literal` expression and the current `LogicalPlan`. It then runs the link:spark-sql-spark-plan.adoc[SparkPlan] that produces a `Array[InternalRow]` that is in turn decoded to `Array[T]` using a bounded link:spark-sql-Encoder.adoc[encoder].
 
 === [[join]] join
 
@@ -55,9 +243,9 @@ CAUTION: FIXME
 
 CAUTION: FIXME
 
-=== [[groupBy]] groupBy
+=== [[groupBy]] Grouping by Columns (groupBy method)
 
-CAUTION: FIXME
+TIP: Read to link:spark-sql-aggregation.adoc[Aggregation -- Typed and Untyped Grouping].
 
 === [[foreachPartition]] foreachPartition method
 
@@ -137,7 +325,7 @@ persist(newLevel: StorageLevel): this.type
 
 `persist` caches the `Dataset` using the default storage level `MEMORY_AND_DISK` or `newLevel`.
 
-Internally, it requests the link:spark-cachemanager.adoc#cacheQuery[`CacheManager` to cache the query].
+Internally, it requests the link:spark-sql-CacheManager.adoc#cacheQuery[`CacheManager` to cache the query] (that is accessible through link:spark-sql-sparksession.adoc#SharedState[SharedState] of the current link:spark-sql-sparksession.adoc[SparkSession]).
 
 === [[unpersist]] Unpersisting Dataset (unpersist method)
 
@@ -167,7 +355,7 @@ The features of the Dataset API in Spark SQL:
 
 === [[implicits]][[toDS]][[toDF]] Type Conversions to Dataset[T] (and DataFrame) (toDS and toDF methods)
 
-`DatasetHolder` case class offers three methods that do the conversions from `Seq[T]` or `RDD[T]` type to `Dataset[T]`:
+`DatasetHolder` case class offers three methods that do the conversions from `Seq[T]` or `RDD[T]` types to a `Dataset[T]`:
 
 * `toDS(): Dataset[T]`
 * `toDF(): DataFrame`
@@ -175,10 +363,13 @@ The features of the Dataset API in Spark SQL:
 
 NOTE: `DataFrame` is a _mere_ type alias for `Dataset[Row]` since Spark *2.0.0*.
 
-`DatasetHolder` is used by `SQLImplicits` that is available to use after link:spark-sql-sqlcontext.adoc#implicits[importing implicits object of SQLContext].
+`DatasetHolder` is used by `SQLImplicits` that is available to use after link:spark-sql-sparksession.adoc#implicits[importing `implicits` object of `SparkSession`].
 
 [source, scala]
 ----
+val spark: SparkSession = ...
+import spark.implicits._
+
 scala> val ds = Seq("I am a shiny Dataset!").toDS
 ds: org.apache.spark.sql.Dataset[String] = [value: string]
 
@@ -194,11 +385,11 @@ ds: org.apache.spark.sql.Dataset[String] = [value: string]
 
 [NOTE]
 ====
-This import is automatically executed in link:spark-shell.adoc[Spark Shell].
+This import of `implicits` object's values is automatically executed in link:spark-shell.adoc[Spark Shell] and so you don't need to do anything but use the conversions.
 
 ```
-scala> sc.version
-res11: String = 2.0.0-SNAPSHOT
+scala> spark.version
+res11: String = 2.0.0
 
 scala> :imports
  1) import spark.implicits._  (59 terms, 38 are implicit)
@@ -208,6 +399,7 @@ scala> :imports
 
 [source, scala]
 ----
+val spark: SparkSession = ...
 import spark.implicits._
 
 case class Token(name: String, productId: Int, score: Double)
@@ -218,9 +410,11 @@ val data = Seq(
   Token("bbb", 300, 0.42))
 
 // Transform data to a Dataset[Token]
-// It doesn't work with type annotation yet
+// It doesn't work with type annotation
 // https://issues.apache.org/jira/browse/SPARK-13456
-val ds: Dataset[Token] = data.toDS
+val ds = data.toDS
+
+// ds: org.apache.spark.sql.Dataset[Token] = [name: string, productId: int ... 1 more field]
 
 // Transform data into a DataFrame with no explicit schema
 val df = data.toDF
@@ -265,27 +459,33 @@ scala> ds.map(_.getClass.getName).show(false)
 |$line40.$read$$iw$$iw$Token|
 |$line40.$read$$iw$$iw$Token|
 +---------------------------+
-
-scala> ds.map(_.name).show
-+-----+
-|value|
-+-----+
-|  aaa|
-|  aaa|
-|  bbb|
-|  bbb|
-+-----+
 ----
+
+==== [[toDS-internals]] Internals of toDS
+
+Internally, the Scala compiler makes `toDS` implicitly available to any `Seq[T]` (using `SQLImplicits.localSeqToDatasetHolder` implicit method).
+
+NOTE: This and other implicit methods are in scope whenever you do `import spark.implicits._`.
+
+The input `Seq[T]` is converted into `Dataset[T]` by means of link:spark-sql-sqlcontext.adoc#createDataset[SQLContext.createDataset] that in turn passes all calls on to link:spark-sql-sparksession.adoc#createDataset[SparkSession.createDataset]. Once created, the `Dataset[T]` is wrapped in `DatasetHolder[T]` with `toDS` that just returns the input `ds`.
 
 === [[rdd]] Converting Datasets into RDDs (using rdd method)
 
-Whenever you are in need to convert a `Dataset` into a `RDD`, executing `rdd` method gives you a RDD of the proper input object type (not link:spark-sql-dataframe.adoc#features[Row as in DataFrames]).
+Whenever you are in need to convert a `Dataset` into a `RDD`, executing `rdd` method gives you the RDD of the proper input object type (not link:spark-sql-dataframe.adoc#features[Row as in DataFrames]) that sits behind the `Dataset`.
 
 [source, scala]
 ----
 scala> val rdd = tokens.rdd
 rdd: org.apache.spark.rdd.RDD[Token] = MapPartitionsRDD[11] at rdd at <console>:30
 ----
+
+Internally, it looks link:spark-sql-Encoder.adoc#ExpressionEncoder[ExpressionEncoder] (for the `Dataset`) up and accesses the `deserializer` expression. That gives the link:spark-sql-DataType.adoc[DataType] of the result of evaluating the expression.
+
+NOTE: A deserializer expression is used to decode an link:spark-sql-InternalRow.adoc[InternalRow] to an object of type `T`. See link:spark-sql-Encoder.adoc#ExpressionEncoder[ExpressionEncoder].
+
+It then executes a `DeserializeToObject` logical plan that will produce a `RDD[InternalRow]` that is converted into the proper `RDD[T]` using the `DataType` and `T`.
+
+NOTE: It is a lazy operation that "produces" a `RDD[T]`.
 
 === [[schema]] Schema
 
@@ -329,6 +529,10 @@ scala> ds.toJSON.show
 +-------------------+
 ----
 
+Internally, `toJSON` grabs the `RDD[InternalRow]` (of the link:spark-sql-query-execution.adoc#toRdd[QueryExecution] of the `Dataset`) and link:spark-rdd-transformations.adoc#mapPartitions[maps the records (per RDD partition)] into JSON.
+
+NOTE: `toJSON` uses Jackson's JSON parser -- https://github.com/FasterXML/jackson-module-scala[jackson-module-scala].
+
 === [[explain]] explain
 
 [source, scala]
@@ -337,30 +541,27 @@ explain(): Unit
 explain(extended: Boolean): Unit
 ----
 
-`explain` prints the link:spark-sql-logical-plan.adoc[logical] and physical plans to the console. You can use it for debugging.
+`explain` prints the link:spark-sql-logical-plan.adoc[logical] and physical plans to the console. Use it for debugging structured queries.
 
-TIP: If you are serious about query debugging you could also use the link:spark-sql-query-execution.adoc#debug[Debugging Query Execution facility].
+TIP: If you are serious about query debugging you could also use the link:spark-sql-debugging-execution.adoc[Debugging Query Execution facility].
 
-Internally, `explain` uses `SQLContext.executePlan(logicalPlan)`.
+Internally, `explain` link:spark-sql-spark-plan.adoc#executeCollect[executes] a link:spark-sql-logical-plan.adoc#ExplainCommand[ExplainCommand] logical command.
 
 [source, scala]
 ----
-val ds = spark.range(10)
-
-scala> ds.explain(extended = true)
+scala> spark.range(10).explain(extended = true)
 == Parsed Logical Plan ==
-Range 0, 10, 1, 8, [id#9L]
+Range (0, 10, step=1, splits=Some(8))
 
 == Analyzed Logical Plan ==
 id: bigint
-Range 0, 10, 1, 8, [id#9L]
+Range (0, 10, step=1, splits=Some(8))
 
 == Optimized Logical Plan ==
-Range 0, 10, 1, 8, [id#9L]
+Range (0, 10, step=1, splits=Some(8))
 
 == Physical Plan ==
-WholeStageCodegen
-:  +- Range 0, 1, 8, 10, [id#9L]
+*Range (0, 10, step=1, splits=Some(8))
 ----
 
 === [[select]] select
@@ -385,6 +586,10 @@ select[U1, U2, U3, U4, U5](
   c4: TypedColumn[T, U4],
   c5: TypedColumn[T, U5]): Dataset[(U1, U2, U3, U4, U5)]
 ----
+
+CAUTION: FIXME
+
+=== [[filter]] filter
 
 CAUTION: FIXME
 
@@ -506,6 +711,19 @@ withNewExecutionId[U](body: => U): U
 `withNewExecutionId` is a `private[sql]` method that executes the input `body` action using link:spark-sql-SQLExecution.adoc#withNewExecutionId[SQLExecution.withNewExecutionId] that sets the *execution id* local property set.
 
 NOTE: It is used in `foreach`, <<foreachPartition, foreachPartition>>, and (private) `collect`.
+
+=== [[ofRows]] Creating DataFrame (ofRows method)
+
+[source, scala]
+----
+ofRows(sparkSession: SparkSession, logicalPlan: LogicalPlan): DataFrame
+----
+
+NOTE: `ofRows` is a `private[sql]` method that can only be accessed from code in `org.apache.spark.sql` package. It is not a part of ``Dataset``'s public API.
+
+`ofRows` returns link:spark-sql-dataframe.adoc[DataFrame] (which is the type alias for `Dataset[Row]`). `ofRows` uses link:spark-sql-RowEncoder.adoc[RowEncoder] to convert the schema (based on the input `logicalPlan` logical plan).
+
+Internally, `ofRows` link:spark-sql-sessionstate.adoc#executePlan[prepares the input `logicalPlan` for execution] and creates a `Dataset[Row]` with the current link:spark-sql-sparksession.adoc[SparkSession], the link:spark-sql-query-execution.adoc[QueryExecution] and link:spark-sql-RowEncoder.adoc[RowEncoder].
 
 === [[i-want-more]] Further reading or watching
 

@@ -264,13 +264,13 @@ CAUTION: FIXME Where is the method used?
 
 NOTE: `getAllPools` is used to calculate pool names for link:spark-webui-AllStagesPage.adoc#pool-names[Stages tab in web UI] with FAIR scheduling mode used.
 
-=== [[defaultParallelism]] Getting Default Level of Parallelism
+=== [[defaultParallelism]] Computing Default Level of Parallelism
 
-*Default level of parallelism* is the number of link:spark-rdd-partitions.adoc[partitions] when not specified explicitly by a user.
+*Default level of parallelism* is the number of link:spark-rdd-partitions.adoc[partitions] in RDDs when created without specifying them explicitly by a user.
 
 It is used for the methods like `SparkContext.parallelize`, `SparkContext.range` and `SparkContext.makeRDD` (as well as link:spark-streaming.adoc[Spark Streaming]'s `DStream.countByValue` and `DStream.countByValueAndWindow` and few other places). It is also used to instantiate link:spark-rdd-partitions.adoc#HashPartitioner[HashPartitioner] or for the minimum number of partitions in link:spark-rdd-hadooprdd.adoc[HadoopRDDs].
 
-SparkContext queries link:spark-taskscheduler.adoc[TaskScheduler] for the default level of parallelism (refer to link:spark-taskscheduler.adoc#contract[TaskScheduler Contract]).
+Internally, `defaultParallelism` relays requests for the default level of parallelism to link:spark-taskscheduler.adoc#defaultParallelism[TaskScheduler] (it is a part of its contract).
 
 === [[version]] Getting Spark Version
 
@@ -354,7 +354,7 @@ When an RDD is created, it belongs to and is completely owned by the Spark conte
 .A Spark context creates a living space for RDDs.
 image::diagrams/sparkcontext-rdds.png[align="center"]
 
-=== [[creating-rdds]] Creating RDD
+=== [[creating-rdds]][[parallelize]] Creating RDD
 
 `SparkContext` allows you to create many different RDDs from input sources like:
 
@@ -439,7 +439,7 @@ image::images/spark-webui-accumulators.png[align="center"]
 
 TIP: You can register custom accumulators using <<register, register>> methods.
 
-=== [[creating-broadcast-variables]] Creating Broadcast Variables
+=== [[broadcast]][[creating-broadcast-variables]] Creating Broadcast Variables
 
 [source, scala]
 ----
@@ -472,10 +472,15 @@ Spark does not support broadcasting RDDs.
 scala> sc.broadcast(sc.range(0, 10))
 java.lang.IllegalArgumentException: requirement failed: Can not directly broadcast RDDs; instead, call collect() and broadcast the result.
   at scala.Predef$.require(Predef.scala:224)
-  at org.apache.spark.SparkContext.broadcast(SparkContext.scala:1370)
+  at org.apache.spark.SparkContext.broadcast(SparkContext.scala:1392)
   ... 48 elided
 ```
 ====
+
+Once created, the broadcast variable (and other blocks) are displayed per executor and the driver in web UI (under link:spark-webui-executors.adoc[Executors tab]).
+
+.Broadcast Variables In web UI's Executors Tab
+image::images/spark-broadcast-webui-executors-rdd-blocks.png[align="center"]
 
 === [[jars]] Distribute JARs to workers
 

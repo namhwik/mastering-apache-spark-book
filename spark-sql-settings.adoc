@@ -9,6 +9,14 @@ You can apply them to link:spark-sql-sqlcontext.adoc[SQLContext] using `setConf`
 spark.setConf("spark.sql.codegen.wholeStage", "false")
 ----
 
+=== [[spark.sql.warehouse.dir]] spark.sql.warehouse.dir
+
+`spark.sql.warehouse.dir` (default: `${system:user.dir}/spark-warehouse`) is the default location for managed databases and tables.
+
+=== [[spark.sql.parquet.filterPushdown]] spark.sql.parquet.filterPushdown
+
+`spark.sql.parquet.filterPushdown` (default: `true`) is a flag to control the Parquet link:spark-sql-catalyst-predicate-pushdown.adoc[filter predicate push-down optimization].
+
 === [[spark.sql.catalogImplementation]] spark.sql.catalogImplementation
 
 `spark.sql.catalogImplementation` (default: `in-memory`) is an internal setting to select the active catalog implementation.
@@ -18,7 +26,7 @@ There are two acceptable values:
 * `in-memory` (default)
 * `hive`
 
-CAUTION: FIXME What is a catalog?
+TIP: Read link:spark-sql-ExternalCatalog.adoc[ExternalCatalog -- System Catalog of Permanent Entities].
 
 === [[spark.sql.shuffle.partitions]] spark.sql.shuffle.partitions
 
@@ -48,7 +56,7 @@ Consult link:spark-sql-joins.adoc#broadcast-join[Broadcast Join] for more inform
 
 `spark.sql.sources.default` (default: `parquet`) sets the default data source to use in input/output.
 
-It is used when reading or writing data in link:spark-sql-dataframewriter.adoc[DataFrameWriter], link:spark-sql-dataframereader.adoc[DataFrameReader], link:spark-sql-sqlcontext.adoc#createExternalTable[createExternalTable] as well as the streaming link:spark-sql-streaming-DataStreamReader.adoc[DataStreamReader] and link:spark-sql-streaming-DataStreamWriter.adoc[DataStreamWriter].
+It is used when reading or writing data in link:spark-sql-dataframewriter.adoc[DataFrameWriter] and link:spark-sql-dataframereader.adoc[DataFrameReader], when link:spark-sql-Catalog.adoc#createExternalTable[creating external table from a path] (in `Catalog.createExternalTable`) and in the streaming link:spark-sql-streaming-DataStreamReader.adoc[DataStreamReader] and link:spark-sql-streaming-DataStreamWriter.adoc[DataStreamWriter].
 
 === [[spark.sql.streaming.checkpointLocation]] spark.sql.streaming.checkpointLocation
 
