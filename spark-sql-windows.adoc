@@ -75,15 +75,15 @@ Spark SQL supports three kinds of window functions:
 .Window functions in Spark SQL (see https://databricks.com/blog/2015/07/15/introducing-window-functions-in-spark-sql.html[Introducing Window Functions in Spark SQL])
 [align="center",width="80%",frame="topbot",options="header"]
 |======================
-|                           |SQL          |DataFrame API
-.5+^.^|*Ranking functions*  |RANK         |rank
-                            |DENSE_RANK   |dense_rank
-                            |PERCENT_RANK |percent_rank
-                            |NTILE        |ntile
-                            |ROW_NUMBER   |row_number
-.5+^.^|*Analytic functions* |CUME_DIST    |cume_dist
-                            |LAG          |lag
-                            |LEAD         |lead
+|                           |SQL          |Function
+.5+^.^|*Ranking functions*  |RANK         |link:spark-sql-functions.adoc#rank[rank]
+                            |DENSE_RANK   |link:spark-sql-functions.adoc#dense_rank[dense_rank]
+                            |PERCENT_RANK |link:spark-sql-functions.adoc#percent_rank[percent_rank]
+                            |NTILE        |link:spark-sql-functions.adoc#ntile[ntile]
+                            |ROW_NUMBER   |link:spark-sql-functions.adoc#row_number[row_number]
+.5+^.^|*Analytic functions* |CUME_DIST    |link:spark-sql-functions.adoc#cume_dist[cume_dist]
+                            |LAG          |link:spark-sql-functions.adoc#lag[lag]
+                            |LEAD         |link:spark-sql-functions.adoc#lead[lead]
 |======================
 
 For aggregate functions, you can use the existing link:spark-sql-aggregation.adoc[aggregate functions] as window functions, e.g. `sum`, `avg`, `min`, `max` and `count`.
@@ -573,13 +573,13 @@ Window [rank(salary#7L) windowspecdefinition(depname#5, salary#7L DESC, ROWS BET
       +- LocalTableScan [depName#5, empNo#6L, salary#7L]
 ```
 
-==== [[Window]] Window Logical Plan
+==== [[Window]] Window Unary Logical Plan
 
-`Window` is a link:spark-sql-logical-plan.adoc#UnaryNode[unary logical plan] that is created for a collection of `NamedExpressions` (for windows), a collection of `Expressions` (for partitions), a collection of `SortOrder` (for sorting) and a child logical plan.
+`Window` is a link:spark-sql-catalyst-LogicalPlan.adoc#UnaryNode[unary logical plan] that is created for a collection of `NamedExpressions` (for windows), a collection of `Expressions` (for partitions), a collection of `SortOrder` (for sorting) and a child logical plan.
 
-The `output` collection of `Attributes` is the child's `Attributes` and the window's.
+The `output` (collection of link:spark-sql-catalyst-Attribute.adoc[Attributes]) is the child's attributes and the window's.
 
-`Window` logical plan is a subject of pruning unnecessary window expressions in link:spark-sql-catalyst-optimizer-ColumnPruning.adoc[ColumnPruning] rule and pushing filter operators in link:spark-sql-catalyst-predicate-pushdown.adoc[PushDownPredicate] rule.
+`Window` logical plan is a subject of pruning unnecessary window expressions in link:spark-sql-catalyst-optimizer-ColumnPruning.adoc[ColumnPruning] rule and pushing filter operators in link:spark-sql-catalyst-optimizer-PushDownPredicate.adoc[PushDownPredicate] rule.
 
 === [[i-want-more]] Further reading or watching
 

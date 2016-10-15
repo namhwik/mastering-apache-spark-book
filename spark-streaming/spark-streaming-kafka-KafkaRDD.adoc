@@ -1,0 +1,43 @@
+== [[KafkaRDD]] KafkaRDD
+
+`KafkaRDD` class is a link:../spark-rdd.adoc[RDD] of Kafka's https://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/ConsumerRecord.html[ConsumerRecord]s from topics in Apache Kafka. It has support for link:spark-streaming-kafka-HasOffsetRanges.adoc[HasOffsetRanges].
+
+NOTE: Kafka's https://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/ConsumerRecord.html[ConsumerRecord] holds a topic name, a partition number, the offset of the record in the Kafka partition and the record itself (as a key-value pair).
+
+
+It uses `KafkaRDDPartition` for partitions that know their preferred locations as the host of the topic (not port however!). It then nicely maps a RDD partition to a Kafka topic partition.
+
+NOTE: `KafkaRDD` is a `private[spark]` class.
+
+`KafkaRDD` overrides methods of `RDD` class to base them on `offsetRanges`, i.e. partitions.
+
+You can create a `KafkaRDD` using link:spark-streaming-kafka-KafkaUtils.adoc#createRDD[KafkaUtils.createRDD] or a dstream of `KafkaRDD` as link:spark-streaming-kafka-DirectKafkaInputDStream.adoc[DirectKafkaInputDStream] using link:spark-streaming-kafka-KafkaUtils.adoc#createDirectStream[KafkaUtils.createDirectStream].
+
+[TIP]
+====
+Enable `INFO` logging level for `org.apache.spark.streaming.kafka.KafkaRDD` logger to see what happens inside.
+
+Add the following line to `conf/log4j.properties`:
+
+```
+log4j.logger.org.apache.spark.streaming.kafka.KafkaRDD=INFO
+```
+
+Refer to link:../spark-logging.adoc[Logging].
+====
+
+=== [[compute]] Computing Partitions
+
+To `compute` a partition, `KafkaRDD`, checks for validity of beginning and ending offsets (so they range over at least one element) and returns an (internal) `KafkaRDDIterator`.
+
+You should see the following INFO message in the logs:
+
+```
+INFO KafkaRDD: Computing topic [topic], partition [partition] offsets [fromOffset] -> [toOffset]
+```
+
+It creates a new `KafkaCluster` every time it is called as well as https://www.apache.org/dist/kafka/0.9.0.0/scaladoc/index.html#kafka.serializer.Decoder[kafka.serializer.Decoder] for the key and the value (that come with a constructor that accepts https://www.apache.org/dist/kafka/0.9.0.0/scaladoc/index.html#kafka.utils.VerifiableProperties[kafka.utils.VerifiableProperties]).
+
+It fetches batches of `kc.config.fetchMessageMaxBytes` size per topic, partition, and offset (it uses https://www.apache.org/dist/kafka/0.9.0.0/scaladoc/index.html#kafka.consumer.SimpleConsumer@fetch(request:kafka.api.FetchRequest):kafka.api.FetchResponse[kafka.consumer.SimpleConsumer.fetch(kafka.api.FetchRequest)] method).
+
+CAUTION: FIXME Review
