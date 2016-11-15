@@ -28,10 +28,8 @@ FIXME: Where's `shuffleToMapStage` used?
 
 * getShuffleMapStage - see <<stage-sharing, Stage sharing>>
 * getAncestorShuffleDependencies
-* cleanupStateForJobAndIndependentStages
-* handleExecutorLost
 
-When there is no ShuffleMapStage for a shuffle id (of a ShuffleDependency), one is created with the ancestor shuffle dependencies of the RDD (of a ShuffleDependency) that are registered to link:spark-service-mapoutputtracker.adoc#MapOutputTrackerMaster[MapOutputTrackerMaster].
+When there is no ShuffleMapStage for a shuffle id (of a ShuffleDependency), one is created with the ancestor shuffle dependencies of the RDD (of a ShuffleDependency) that are registered to link:spark-service-MapOutputTrackerMaster.adoc[MapOutputTrackerMaster].
 
 FIXME Where is `ShuffleMapStage` used?
 
@@ -47,11 +45,15 @@ FIXME
 * `newShuffleMapStage`
 ====
 
+=== [[removeActiveJob]] `removeActiveJob` Method
+
+CAUTION: FIXME
+
 === [[stage-sharing]] ShuffleMapStage Sharing
 
 ShuffleMapStages can be shared across multiple jobs, if these jobs reuse the same RDDs.
 
-When a ShuffleMapStage is submitted to DAGScheduler to execute, `getShuffleMapStage` is called (as part of <<MapStageSubmitted, handleMapStageSubmitted>> while `newResultStage` - note the `new` part - for <<JobSubmitted, handleJobSubmitted>>).
+When a ShuffleMapStage is submitted to DAGScheduler to execute, `getShuffleMapStage` is called (as part of <<MapStageSubmitted, handleMapStageSubmitted>> while `newResultStage` - note the `new` part - for link:spark-dagscheduler-DAGSchedulerEventProcessLoop.adoc#handleJobSubmitted[handleJobSubmitted]).
 
 [source, scala]
 ----

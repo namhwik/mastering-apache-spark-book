@@ -1,7 +1,0 @@
-== MesosCoarseGrainedSchedulerBackend -- Coarse-Grained Scheduler Backend for Mesos
-
-CAUTION: FIXME
-
-=== [[executorLimitOption]] (executorLimitOption attribute)
-
-`executorLimitOption` is an internal attribute to...FIXME

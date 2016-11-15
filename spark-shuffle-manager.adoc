@@ -4,7 +4,7 @@ Spark comes with a pluggable mechanism for *shuffle systems*.
 
 *Shuffle Manager* (aka *Shuffle Service*) is a Spark service that tracks link:spark-dagscheduler-ShuffleMapStage.adoc[shuffle dependencies for ShuffleMapStage]. The driver and executors all have their own Shuffle Service.
 
-The setting <<settings, spark.shuffle.manager>> sets up the default shuffle manager.
+The setting <<spark.shuffle.manager, spark.shuffle.manager>> sets up the default shuffle manager.
 
 The driver registers shuffles with a shuffle manager, and executors (or tasks running locally in the driver) can ask to read and write data.
 
@@ -16,7 +16,7 @@ The service is available under `SparkEnv.get.shuffleManager`.
 
 When link:spark-rdd-shuffledrdd.adoc[ShuffledRDD] is computed it reads partitions from it.
 
-The name appears https://github.com/apache/spark/commit/2da3a9e98e5d129d4507b5db01bba5ee9558d28e[here], twice in link:spark-building-from-sources.adoc[the build's output] and others.
+The name appears https://github.com/apache/spark/commit/2da3a9e98e5d129d4507b5db01bba5ee9558d28e[here], twice in link:varia/spark-building-from-sources.adoc[the build's output] and others.
 
 Review the code in `network/shuffle` module.
 
@@ -42,10 +42,9 @@ Every `ShuffleManager` offers the following services:
 
 === Available Implementations
 
-Spark comes with two implementations of <<contract, ShuffleManager contract>>:
+Spark comes with the following implementations of <<contract, ShuffleManager contract>>:
 
 * <<SortShuffleManager, org.apache.spark.shuffle.sort.SortShuffleManager>> (short name: `sort` or `tungsten-sort`)
-* `org.apache.spark.shuffle.hash.HashShuffleManager` (short name: `hash`)
 
 CAUTION: FIXME Exercise for a custom implementation of Shuffle Manager using `private[spark] ShuffleManager` trait.
 
@@ -60,6 +59,9 @@ It uses `IndexShuffleBlockResolver` as the `shuffleBlockResolver`.
 ==== [[spark.shuffle.manager]] spark.shuffle.manager
 
 `spark.shuffle.manager` (default: `sort`) sets the default shuffle manager by a short name or the fully-qualified class name of a custom implementation.
+
+1. `sort` or `org.apache.spark.shuffle.sort.SortShuffleManager`
+2. `tungsten-sort` or `org.apache.spark.shuffle.sort.SortShuffleManager`
 
 ==== [[spark.shuffle.spill]] spark.shuffle.spill
 
