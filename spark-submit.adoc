@@ -21,8 +21,8 @@ CAUTION: FIXME Add Cluster Manager and Deploy Mode to the table below (see `opti
 
 [[options-properties-variables]]
 .Command-Line Options, Spark Properties and Environment Variables (from ``SparkSubmitArguments``'s link:spark-submit-SparkSubmitArguments.adoc#loadEnvironmentArguments[loadEnvironmentArguments] and link:spark-submit-SparkSubmitArguments.adoc#handle[handle])
-[frame="topbot",cols="1,1,1,2,1", options="header",width="100%"]
-|======================
+[cols="1,1,1,2,1", options="header",width="100%"]
+|===
 | Command-Line Option | Spark Property | Environment Variable | Description | Internal Property
 | `action` | | | Defaults to `SUBMIT` |
 | `--archives` | | | | `archives`
@@ -31,11 +31,11 @@ CAUTION: FIXME Add Cluster Manager and Deploy Mode to the table below (see `opti
 | `--driver-class-path` | `spark.driver.extraClassPath` | | The driver's class path | `driverExtraClassPath`
 | `--driver-java-options` | `spark.driver.extraJavaOptions` | | The driver's JVM options | `driverExtraJavaOptions`
 | `--driver-library-path` | `spark.driver.extraLibraryPath` | | The driver's native library path | `driverExtraLibraryPath`
-| `--driver-memory` | `spark.driver.memory` | `SPARK_DRIVER_MEMORY` | The driver's memory | `driverMemory`
+| [[driver-memory]] `--driver-memory` | [[spark_driver_memory]] `spark.driver.memory` | `SPARK_DRIVER_MEMORY` | The driver's memory | `driverMemory`
 | `--driver-cores` | `spark.driver.cores` | | | `driverCores`
 | `--exclude-packages` | `spark.jars.excludes` | | | `packagesExclusions`
 | `--executor-cores` | `spark.executor.cores` | `SPARK_EXECUTOR_CORES` | The number of executor CPU cores | `executorCores`
-| `--executor-memory` | `spark.executor.memory` | `SPARK_EXECUTOR_MEMORY` | An executor's memory | `executorMemory`
+| [[executor-memory]] `--executor-memory` | [[spark_executor_memory]] `spark.executor.memory` | `SPARK_EXECUTOR_MEMORY` | An executor's memory | `executorMemory`
 | `--files` | `spark.files` | | | `files`
 | `ivyRepoPath` | `spark.jars.ivy` | | |
 | `--jars` | `spark.jars` | | | `jars`
@@ -59,7 +59,7 @@ CAUTION: FIXME Add Cluster Manager and Deploy Mode to the table below (see `opti
 | `--version` | | | `SparkSubmit.printVersionAndExit()` |
 | `--help` | | | `printUsageAndExit(0)` |
 | `--usage-error` | | | `printUsageAndExit(1)` |
-|======================
+|===
 
 [TIP]
 ====
@@ -91,14 +91,14 @@ prepareSubmitEnvironment(args: SparkSubmitArguments)
 `prepareSubmitEnvironment` creates a 4-element tuple, i.e. `(childArgs, childClasspath, sysProps, childMainClass)`.
 
 .``prepareSubmitEnvironment``'s Four-Element Return Tuple
-[frame="topbot",cols="1,2",options="header",width="100%"]
-|======================
+[cols="1,2",options="header",width="100%"]
+|===
 | Element | Description
 | `childArgs` | Arguments
 | `childClasspath` | Classpath elements
 | `sysProps` | link:spark-properties.adoc[Spark properties]
 | `childMainClass` | Main class
-|======================
+|===
 
 `prepareSubmitEnvironment` uses `options` to...
 
@@ -424,11 +424,11 @@ If `driverExtraClassPath` not set on command-line, the link:spark-driver.adoc#sp
 NOTE: Command-line options (e.g. `--driver-class-path`) have higher precedence than their corresponding Spark settings in a Spark properties file (e.g. `spark.driver.extraClassPath`). You can therefore control the final settings by overriding Spark settings on command line using the command-line options.
 
 .Spark Settings in Spark Properties File and on Command Line
-[frame="topbot",options="header",width="100%"]
-|======================
+[options="header",width="100%"]
+|===
 | Setting / System Property | Command-Line Option | Description
 | link:spark-driver.adoc#spark_driver_extraClassPath[spark.driver.extraClassPath] | `--driver-class-path` | Extra class path entries (e.g. jars and directories) to pass to a driver's JVM.
-|======================
+|===
 
 === [[version]] Version -- `--version` command-line option
 

@@ -1,12 +1,12 @@
-== Executors
+== [[Executor]] Executors
 
 *Executors* are distributed agents that execute link:spark-taskscheduler-tasks.adoc[tasks].
 
-They _typically_ run for the entire lifetime of a Spark application and is called *static allocation of executors* (but you could also opt in for link:spark-dynamic-allocation.adoc[dynamic allocation]).
+They _typically_ run for the entire lifetime of a Spark application which is called *static allocation of executors* (but you could also opt in for link:spark-dynamic-allocation.adoc[dynamic allocation]).
 
-Executors send <<heartbeats-and-active-task-metrics, active task metrics>> to the link:spark-driver.adoc[driver] and inform link:spark-executor-backends.adoc[executor backends] about task status updates (including task results).
+Executors send <<heartbeats-and-active-task-metrics, active task metrics>> to the link:spark-driver.adoc[driver] and inform link:spark-ExecutorBackend.adoc[executor backends] about task status updates (including task results).
 
-NOTE: Executors are managed exclusively by link:spark-executor-backends.adoc[executor backends].
+NOTE: Executors are managed exclusively by link:spark-ExecutorBackend.adoc[executor backends].
 
 Executors provide in-memory storage for RDDs that are cached in Spark applications (via link:spark-blockmanager.adoc[Block Manager]).
 
@@ -14,13 +14,35 @@ When executors are started they register themselves with the driver and communic
 
 *Executor offers* are described by executor id and the host on which an executor runs (see <<resource-offers, Resource Offers>> in this document).
 
-Executors can run multiple tasks over its lifetime, both in parallel and sequentially. They track link:spark-executor-taskrunner.adoc[running tasks] (by their task ids in <<runningTasks, runningTasks>> internal registry). Consult <<launching-tasks, Launching Tasks>> section.
+Executors can run multiple tasks over its lifetime, both in parallel and sequentially. They track link:spark-executor-TaskRunner.adoc[running tasks] (by their task ids in <<runningTasks, runningTasks>> internal registry). Consult <<launchTask, Launching Tasks>> section.
 
-Executors use a <<thread-pool, thread pool>> for <<launching-tasks, launching tasks>> and <<metrics, sending metrics>>.
+Executors use a <<threadPool, thread pool>> for <<launchTask, launching tasks>> and <<metrics, sending metrics>>.
 
 It is recommended to have as many executors as data nodes and as many cores as you can get from the cluster.
 
 Executors are described by their *id*, *hostname*, *environment* (as `SparkEnv`), and *classpath* (and, less importantly, and more for internal optimization, whether they run in link:spark-local.adoc[local] or link:spark-cluster.adoc[cluster mode]).
+
+CAUTION: FIXME How many cores are assigned per executor?
+
+.Executor's Internal Registries and Counters
+[cols="1,2",options="header",width="100%"]
+|===
+| Name
+| Description
+
+| [[maxDirectResultSize]] `maxDirectResultSize`
+|
+
+| [[maxResultSize]] `maxResultSize`
+|
+
+| [[runningTasks]] `runningTasks`
+|
+
+| [[heartbeatFailures]] `heartbeatFailures`
+|
+
+|===
 
 [TIP]
 ====
@@ -39,11 +61,25 @@ Refer to link:spark-logging.adoc[Logging].
 
 CAUTION: FIXME
 
-=== [[creating-instance]] Creating `Executor` Instance
+=== [[createClassLoader]] `createClassLoader` Method
 
-`Executor` requires `executorId`, `executorHostname`, a link:spark-sparkenv.adoc[SparkEnv], `userClassPath` and whether it runs in local or cluster mode (with cluster as the default).
+CAUTION: FIXME
 
-NOTE: `isLocal` is enabled exclusively for link:spark-local.adoc#LocalEndpoint[LocalEndpoint] (for link:spark-local.adoc[Spark in local mode]).
+=== [[addReplClassLoaderIfNeeded]] `addReplClassLoaderIfNeeded` Method
+
+CAUTION: FIXME
+
+=== [[creating-instance]] Creating Executor Instance
+
+`Executor` takes the following when created:
+
+1. `executorId`
+2. `executorHostname`
+3. link:spark-sparkenv.adoc[SparkEnv]
+4. `userClassPath` -- a collection of URLs (empty by default)
+5. `isLocal` -- whether it runs in local or cluster mode (disabled by default, i.e. cluster is preferred)
+
+NOTE: `isLocal` is enabled exclusively for link:spark-LocalEndpoint.adoc[LocalEndpoint] (for link:spark-local.adoc[Spark in local mode]).
 
 When created, you should see the following INFO messages in the logs:
 
@@ -51,28 +87,32 @@ When created, you should see the following INFO messages in the logs:
 INFO Executor: Starting executor ID [executorId] on host [executorHostname]
 ```
 
-It <<startDriverHeartbeater, creates an RPC endpoint for sending hearbeats to the driver>>.
+(only for non-local mode) `Executor` sets `SparkUncaughtExceptionHandler` as the default handler invoked when a thread abruptly terminates due to an uncaught exception.
 
-When in non-local/cluster mode, a link:spark-blockmanager.adoc#initialize[`BlockManager` is initialized].
+(only for non-local mode) `Executor` link:spark-metrics.adoc#registerSource[registers `ExecutorSource`] and link:spark-blockmanager.adoc#initialize[initializes the local `BlockManager`].
 
-NOTE: The `BlockManager` for an executor is available in `SparkEnv` passed to the constructor.
+NOTE: `Executor` uses `SparkEnv` to access the local link:spark-sparkenv.adoc#metricsSystem[MetricsSystem] and link:spark-sparkenv.adoc#blockManager[BlockManager].
 
-A worker requires the additional services (beside the common ones like ...):
+`Executor` <<createClassLoader, creates a task class loader>> (possibly with <<addReplClassLoaderIfNeeded, REPL support>>) and link:spark-Serializer.adoc#setDefaultClassLoader[requests the current `Serializer` to use it].
 
-* executorActorSystemName
-* link:spark-rpc.adoc[RPC Environment] (for Akka only)
-* link:spark-service-mapoutputtracker.adoc#MapOutputTrackerWorker[MapOutputTrackerWorker]
-* link:spark-metrics.adoc[MetricsSystem] with the name `executor`
+NOTE: `Executor` uses link:spark-sparkenv.adoc#serializer[`SparkEnv` to access the local `Serializer`].
 
-link:spark-executor-ExecutorSource.adoc[ExecutorSource] is created (with `executorId`). And, only for cluster mode, link:spark-metrics.adoc#registerSource[`MetricsSystem` is requested to register it].
+`Executor` <<startDriverHeartbeater, starts sending heartbeats and active tasks metrics>>.
 
-(only for cluster mode) link:spark-blockmanager.adoc#initialize[`BlockManager` is initialized].
+`Executor` initializes the <<internal-registries, internal registries and counters>> in the meantime (not necessarily at the very end).
 
-NOTE: A `Executor` is created when link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc#RegisteredExecutor[`CoarseGrainedExecutorBackend` receives `RegisteredExecutor` message], in link:spark-executor-backends.adoc#MesosExecutorBackend[MesosExecutorBackend.registered] and when link:spark-local.adoc#LocalEndpoint-creating-instance[LocalEndpoint is created].
+[NOTE]
+====
+`Executor` is created when:
 
-CAUTION: FIXME How many cores are assigned per executor?
+1. link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc#RegisteredExecutor[`CoarseGrainedExecutorBackend` receives `RegisteredExecutor` message]
 
-=== [[launchTask]][[launching-tasks]] Launching Tasks -- `launchTask` Method
+2. link:spark-mesos/spark-executor-backends-MesosExecutorBackend.adoc#registered[`MesosExecutorBackend` does `registered`]
+
+3. link:spark-LocalEndpoint.adoc#creating-instance[`LocalEndpoint` is created]
+====
+
+=== [[launchTask]] Launching Task -- `launchTask` Method
 
 [source, scala]
 ----
@@ -86,12 +126,12 @@ launchTask(
 
 `launchTask` executes the input `serializedTask` task concurrently.
 
-Internally, `launchTask` creates a link:spark-executor-taskrunner.adoc[TaskRunner], registers it in <<runningTasks, `runningTasks` internal registry>> (by `taskId`), and finally executes it on <<threadPool, "Executor task launch worker" thread pool>>.
+Internally, `launchTask` creates a link:spark-executor-TaskRunner.adoc[TaskRunner], registers it in <<runningTasks, `runningTasks` internal registry>> (by `taskId`), and finally executes it on <<threadPool, "Executor task launch worker" thread pool>>.
 
 .Launching tasks on executor using TaskRunners
 image::images/executor-taskrunner-executorbackend.png[align="center"]
 
-NOTE: `launchTask` is called by link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc[CoarseGrainedExecutorBackend] (when it handles link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc#LaunchTask[LaunchTask] message), link:spark-executor-backends.adoc#MesosExecutorBackend[MesosExecutorBackend], and link:spark-local.adoc#LocalEndpoint[LocalEndpoint].
+NOTE: `launchTask` is called by link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc[CoarseGrainedExecutorBackend] (when it handles link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc#LaunchTask[LaunchTask] message), link:spark-mesos/spark-executor-backends-MesosExecutorBackend.adoc[MesosExecutorBackend], and link:spark-LocalEndpoint.adoc[LocalEndpoint].
 
 === [[startDriverHeartbeater]][[heartbeats-and-active-task-metrics]] Sending Heartbeats and Active Tasks Metrics -- `startDriverHeartbeater` Method
 
@@ -105,11 +145,11 @@ An executor sends heartbeats using the <<heartbeater, internal heartbeater - Hea
 .HeartbeatReceiver's Heartbeat Message Handler
 image::images/spark-HeartbeatReceiver-Heartbeat.png[align="center"]
 
-For each link:spark-taskscheduler-tasks.adoc[task] in link:spark-executor-taskrunner.adoc[TaskRunner] (in <<runningTasks, runningTasks>> internal registry), the task's metrics are computed (i.e. `mergeShuffleReadMetrics` and `setJvmGCTime`) that become part of the heartbeat (with accumulators).
+For each link:spark-taskscheduler-tasks.adoc[task] in link:spark-executor-TaskRunner.adoc[TaskRunner] (in <<runningTasks, runningTasks>> internal registry), the task's metrics are computed (i.e. `mergeShuffleReadMetrics` and `setJvmGCTime`) that become part of the heartbeat (with accumulators).
 
 CAUTION: FIXME How do `mergeShuffleReadMetrics` and `setJvmGCTime` influence `accumulators`?
 
-NOTE: Executors track the link:spark-executor-taskrunner.adoc[TaskRunner] that run link:spark-taskscheduler-tasks.adoc[tasks]. A link:spark-executor-taskrunner.adoc#run[task might not be assigned to a TaskRunner yet] when the executor sends a heartbeat.
+NOTE: Executors track the link:spark-executor-TaskRunner.adoc[TaskRunner] that run link:spark-taskscheduler-tasks.adoc[tasks]. A link:spark-executor-TaskRunner.adoc#run[task might not be assigned to a TaskRunner yet] when the executor sends a heartbeat.
 
 A blocking link:spark-sparkcontext-HeartbeatReceiver.adoc#Heartbeat[Heartbeat] message that holds the executor id, all accumulator updates (per task id), and link:spark-blockmanager.adoc#BlockManagerId[BlockManagerId] is sent to link:spark-sparkcontext-HeartbeatReceiver.adoc[HeartbeatReceiver RPC endpoint] (with <<spark_executor_heartbeatInterval, spark.executor.heartbeatInterval>> timeout).
 
@@ -151,32 +191,15 @@ The name of the thread pool is *driver-heartbeater*.
 
 *Coarse-grained executors* are executors that use link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc[CoarseGrainedExecutorBackend] for task scheduling.
 
-=== [[FetchFailedException]] FetchFailedException
-
-CAUTION: FIXME
-
-`FetchFailedException` exception is thrown when an executor (more specifically link:spark-executor-taskrunner.adoc[TaskRunner]) has failed to fetch a shuffle block.
-
-It contains the following:
-
-* the unique identifier for a BlockManager (as `BlockManagerId`)
-* `shuffleId`
-* `mapId`
-* `reduceId`
-* `message` - a short exception message
-* `cause` - a `Throwable` object
-
-link:spark-executor-taskrunner.adoc[TaskRunner] catches it and informs link:spark-executor-backends.adoc[ExecutorBackend] about the case (using `statusUpdate` with `TaskState.FAILED` task state).
-
-CAUTION: FIXME Image with the call to ExecutorBackend.
-
 === [[resource-offers]] Resource Offers
 
-Read link:spark-taskschedulerimpl.adoc#resourceOffers[resourceOffers] in TaskSchedulerImpl and link:spark-tasksetmanager.adoc##resourceOffers[resourceOffer] in TaskSetManager.
+Read link:spark-taskschedulerimpl.adoc#resourceOffers[resourceOffers] in TaskSchedulerImpl and link:spark-TaskSetManager.adoc##resourceOffers[resourceOffer] in TaskSetManager.
 
-=== [[threadPool]][[thread-pool]] "Executor task launch worker" Thread Pool
+=== [[threadPool]] "Executor task launch worker" Thread Pool -- `threadPool` Property
 
-Executors use the daemon cached thread pools with the name *Executor task launch worker-ID* (with `ID` being the task id) for <<launching-tasks, launching tasks>>.
+`Executor` uses `threadPool` daemon cached thread pool with the name *Executor task launch worker-[ID]* (with `ID` being the task id) for <<launchTask, launching tasks>>.
+
+`threadPool` is created when <<creating-instance, `Executor` is created>> and shut down when <<stop, it stops>>.
 
 === [[memory]] Executor Memory -- `spark.executor.memory` or `SPARK_EXECUTOR_MEMORY` settings
 
@@ -201,31 +224,29 @@ The above figure shows the result of running link:spark-shell.adoc[Spark shell] 
 
 Every executor registers its own link:spark-executor-ExecutorSource.adoc[ExecutorSource] to link:spark-metrics.adoc#report[report metrics].
 
-=== [[internal-registries]] Internal Registries and Counters
-
-.Internal Registries and Counters
-[frame="topbot",cols="1,2",options="header",width="100%"]
-|======================
-| Name | Description
-| [[runningTasks]] `runningTasks` |
-| [[heartbeatFailures]] `heartbeatFailures` |
-|======================
-
 === [[settings]] Settings
 
 .Spark Properties
-[frame="topbot",cols="1,1,2",options="header",width="100%"]
-|======================
+[cols="1,1,2",options="header",width="100%"]
+|===
 | Spark Property | Default Value | Description
-| [[spark_executor_cores]] `spark.executor.cores` | | Number of cores for an executor.
-| [[spark_executor_extraClassPath]] `spark.executor.extraClassPath` | | List of URLs representing a user's CLASSPATH.
+| [[spark.executor.cores]][[spark_executor_cores]] `spark.executor.cores` | | Number of cores for an executor.
+
+| [[spark.executor.extraClassPath]][[spark_executor_extraClassPath]] `spark.executor.extraClassPath`
+|
+| List of URLs representing a user-defined CLASSPATH.
 
 Each entry is separated by system-dependent path separator, i.e. `:` on Unix/MacOS systems and `;` on Microsoft Windows.
-| [[spark_executor_extraJavaOptions]] `spark.executor.extraJavaOptions` | | Extra Java options for executors.
+
+| [[spark.executor.extraJavaOptions]][[spark_executor_extraJavaOptions]] `spark.executor.extraJavaOptions`
+|
+| Extra Java options for executors.
 
 Used to link:yarn/spark-yarn-ExecutorRunnable.adoc#prepareCommand[prepare the command to launch `CoarseGrainedExecutorBackend` in a YARN container].
 
-| [[spark_executor_extraLibraryPath]] `spark.executor.extraLibraryPath` | | List of additional library paths separated by system-dependent path separator, i.e. `:` on Unix/MacOS systems and `;` on Microsoft Windows.
+| [[spark.executor.extraLibraryPath]][[spark_executor_extraLibraryPath]] `spark.executor.extraLibraryPath`
+|
+| Extra library paths separated by system-dependent path separator, i.e. `:` on Unix/MacOS systems and `;` on Microsoft Windows.
 
 Used to link:yarn/spark-yarn-ExecutorRunnable.adoc#prepareCommand[prepare the command to launch `CoarseGrainedExecutorBackend` in a YARN container].
 
@@ -241,11 +262,13 @@ NOTE: It was introduced in https://issues.apache.org/jira/browse/SPARK-13522[SPA
 
 | [[spark_executor_id]] `spark.executor.id` | |
 
-| [[spark_executor_instances]] `spark.executor.instances` | `0` | Number of executors to use.
+| [[spark.executor.instances]][[spark_executor_instances]] `spark.executor.instances`
+| `0`
+| Number of executors to use.
 
-NOTE: When greater than `0`, it disables link:spark-dynamic-allocation.adoc[dynamic allocation].
+NOTE: A positive value disables link:spark-dynamic-allocation.adoc[dynamic allocation].
 
-| [[spark_executor_memory]] `spark.executor.memory` | `1g` | Amount of memory to use per executor process (equivalent to link:spark-sparkcontext.adoc#environment-variables[SPARK_EXECUTOR_MEMORY] environment variable).
+| [[spark.executor.memory]][[spark_executor_memory]] `spark.executor.memory` | `1g` | Amount of memory to use per executor process (equivalent to link:spark-sparkcontext.adoc#environment-variables[SPARK_EXECUTOR_MEMORY] environment variable).
 
 Refer to <<memory, Executor Memory -- spark.executor.memory or SPARK_EXECUTOR_MEMORY settings>> in this document.
 
@@ -259,4 +282,4 @@ Refer to <<memory, Executor Memory -- spark.executor.memory or SPARK_EXECUTOR_ME
 | `spark.executor.uri` | | Equivalent to `SPARK_EXECUTOR_URI`
 
 | [[spark_task_maxDirectResultSize]] `spark.task.maxDirectResultSize` | `1048576B` |
-|======================
+|===

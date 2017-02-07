@@ -1,4 +1,4 @@
-== BlockManagerMaster -- BlockManager for Driver
+== [[BlockManagerMaster]] BlockManagerMaster -- BlockManager for Driver
 
 `BlockManagerMaster` link:spark-sparkenv.adoc#BlockManagerMaster[runs on the driver and executors].
 
@@ -18,6 +18,17 @@ log4j.logger.org.apache.spark.storage.BlockManagerMaster=INFO
 
 Refer to link:spark-logging.adoc[Logging].
 ====
+
+=== [[getLocations-block-array]] Get Block Locations for Multiple Blocks -- `getLocations` Method
+
+[source, scala]
+----
+getLocations(blockIds: Array[BlockId]): IndexedSeq[Seq[BlockManagerId]]
+----
+
+`getLocations` posts `GetLocationsMultipleBlockIds(blockIds)` message to link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[BlockManagerMaster RPC endpoint] and waits for a response which becomes the return value.
+
+NOTE: `getLocations` is used when...FIXME
 
 === [[creating-instance]] Creating `BlockManagerMaster` Instance
 
@@ -94,6 +105,8 @@ WARN Failed to remove shuffle [shuffleId] - [exception]
 ```
 
 If it is a `blocking` operation, it waits for the result for link:spark-rpc.adoc#spark.rpc.askTimeout[spark.rpc.askTimeout], link:spark-rpc.adoc#spark.network.timeout[spark.network.timeout] or `120` secs.
+
+NOTE: `removeShuffle` is used exclusively when link:spark-service-contextcleaner.adoc#doCleanupShuffle[`ContextCleaner` removes a shuffle].
 
 === [[removeBroadcast]] Removing Broadcast Blocks -- `removeBroadcast` Method
 
@@ -198,15 +211,6 @@ getLocations(blockId: BlockId): Seq[BlockManagerId]
 ----
 
 `getLocations` posts `GetLocations(blockId)` message to link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[BlockManagerMaster RPC endpoint] and waits for a response which becomes the return value.
-
-=== [[getLocations-block-array]] Get Block Locations for Multiple Blocks -- `getLocations` Method
-
-[source, scala]
-----
-getLocations(blockIds: Array[BlockId]): IndexedSeq[Seq[BlockManagerId]]
-----
-
-`getLocations` posts `GetLocationsMultipleBlockIds(blockIds)` message to link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[BlockManagerMaster RPC endpoint] and waits for a response which becomes the return value.
 
 === [[getPeers]] `getPeers` Method
 

@@ -206,26 +206,18 @@ res4: String =
 ```
 <1> `shuffle` is `false` by default and it's explicitly used here for demo purposes. Note the number of partitions that remains the same as the number of partitions in the source RDD `rdd`.
 
-=== [[partitioner]] Partitioner
-
-CAUTION: FIXME
-
-A *partitioner* captures data distribution at the output. A scheduler can optimize future operations based on this.
-
-`val partitioner: Option[Partitioner]` specifies how the RDD is partitioned.
-
 === [[settings]] Settings
 
 .Spark Properties
-[frame="topbot",cols="1,1,2",options="header",width="100%"]
-|======================
+[cols="1,1,2",options="header",width="100%"]
+|===
 | Spark Property | Default Value | Description
 
-| [[spark_default_parallelism]] `spark.default.parallelism` | (varies per deployment environment) | Sets up the number of partitions to use for link:spark-rdd-HashPartitioner.adoc[HashPartitioner]. It corresponds to link:spark-scheduler-backends.adoc#defaultParallelism[default parallelism] of a scheduler backend.
+| [[spark_default_parallelism]] `spark.default.parallelism` | (varies per deployment environment) | Sets up the number of partitions to use for link:spark-rdd-HashPartitioner.adoc[HashPartitioner]. It corresponds to link:spark-SchedulerBackend.adoc#defaultParallelism[default parallelism] of a scheduler backend.
 
 More specifically, `spark.default.parallelism` corresponds to:
 
-1. The number of threads for link:spark-local.adoc#LocalBackend[LocalBackend].
+1. The number of threads for link:spark-LocalSchedulerBackend.adoc[LocalSchedulerBackend].
 2. the number of CPU cores in link:spark-mesos.adoc#defaultParallelism[Spark on Mesos] and defaults to `8`.
-3. Maximum of `totalCoreCount` and `2` in link:spark-scheduler-backends-CoarseGrainedSchedulerBackend.adoc#defaultParallelism[CoarseGrainedSchedulerBackend].
-|======================
+3. Maximum of `totalCoreCount` and `2` in link:spark-CoarseGrainedSchedulerBackend.adoc#defaultParallelism[CoarseGrainedSchedulerBackend].
+|===

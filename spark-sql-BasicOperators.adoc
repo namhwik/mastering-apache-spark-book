@@ -1,10 +1,10 @@
 == BasicOperators
 
-`BasicOperators` is a `Strategy` of link:spark-sql-SparkPlanner.adoc[SparkPlanner] and link:spark-sql-queryplanner.adoc#HiveSessionState[Hive-specific `QueryPlanner`] that in most cases simply translates link:spark-sql-LogicalPlan.adoc[logical operators] to their link:spark-sql-catalyst-SparkPlan.adoc[physical counterparts].
+`BasicOperators` is a `Strategy` of link:spark-sql-SparkPlanner.adoc[SparkPlanner] and link:spark-sql-queryplanner.adoc#HiveSessionState[Hive-specific `QueryPlanner`] that in most cases simply translates link:spark-sql-LogicalPlan.adoc[logical operators] to their link:spark-sql-SparkPlan.adoc[physical counterparts].
 
 .``BasicOperators``'s Logical to Physical Operator Mapping
-[frame="topbot",options="header",width="100%"]
-|======================
+[options="header",width="100%"]
+|===
 | Logical Operator | Physical Operator
 | link:spark-sql-LogicalPlan.adoc#RunnableCommand[RunnableCommand] | link:spark-sql-spark-plan-ExecutedCommandExec.adoc[ExecutedCommandExec]
 | link:spark-sql-streaming-MemoryPlan.adoc[MemoryPlan] | link:spark-sql-spark-plan-LocalTableScanExec.adoc[LocalTableScanExec]
@@ -37,7 +37,7 @@
 | `ExternalRDD` | `ExternalRDDScanExec`
 | `LogicalRDD` | `RDDScanExec`
 | `BroadcastHint` | `PlanLater`
-|======================
+|===
 
 TIP: Confirm the operator mapping in the link:++https://github.com/apache/spark/blob/master/sql/core/src/main/scala/org/apache/spark/sql/execution/SparkStrategies.scala#L321++[source code of `BasicOperators`].
 

@@ -1,11 +1,61 @@
-== Tasks
+== [[Task]] Task
 
-In Spark, a *task* (aka _command_) is the smallest individual unit of execution that represents a partition in a dataset and that an link:spark-executor.adoc#launchTask[executor can execute on a single machine].
+`Task` (aka _command_) is the smallest individual unit of execution that is launched to compute a link:spark-rdd-Partition.adoc[RDD partition].
 
 .Tasks correspond to partitions in RDD
 image::images/spark-rdd-partitions-job-stage-tasks.png[align="center"]
 
-In other (more technical) words, a task is a computation on a data partition in a stage in a job.
+A task is described by the <<contract, Task contract>> with a single <<runTask, runTask>> method.
+
+There are two concrete implementations of `Task` contract:
+
+* link:spark-taskscheduler-ShuffleMapTask.adoc[ShuffleMapTask] that executes a task and divides the task's output to multiple buckets (based on the task's partitioner).
+* link:spark-taskscheduler-ResultTask.adoc[ResultTask] that executes a task and sends the task's output back to the driver application.
+
+The very last stage in a Spark job consists of multiple link:spark-taskscheduler-ResultTask.adoc[ResultTask]s, while earlier stages can only be link:spark-taskscheduler-ShuffleMapTask.adoc[ShuffleMapTask]s.
+
+CAUTION: FIXME You could have a Spark job with link:spark-taskscheduler-ShuffleMapTask.adoc[ShuffleMapTask] being the last.
+
+Tasks are link:spark-executor.adoc#launchTask[launched on executors] and <<run, ran when `TaskRunner` starts>>.
+
+In other (more technical) words, a task is a computation on a data partition in a stage of a RDD in a Spark job.
+
+NOTE: `T` is the type defined when a <<creating-instance, `Task` is created>>.
+
+[[internal-registries]]
+.`Task` Internal Registries and Counters
+[cols="1,2",options="header",width="100%"]
+|===
+| Name
+| Description
+
+| [[metrics]] `metrics`
+| Used when ???
+
+| [[taskMemoryManager]] `taskMemoryManager`
+| link:spark-taskscheduler-taskmemorymanager.adoc[TaskMemoryManager] that manages the memory allocated by the task.
+
+Used when ???
+
+| [[context]] `context`
+| Used when ???
+
+| [[_killed]] `_killed`
+| Used when ???
+
+| [[_executorDeserializeTime]] `_executorDeserializeTime`
+| Used when ???
+
+| [[_executorDeserializeCpuTime]] `_executorDeserializeCpuTime`
+| Used when ???
+
+| [[taskThread]] `taskThread`
+| Used when ???
+
+| [[epoch]] `epoch`
+| Set for a `Task` when link:spark-TaskSetManager.adoc#creating-instance[`TaskSetManager` is created] and later used when link:spark-executor-TaskRunner.adoc#run[`TaskRunner` runs] and when link:spark-dagscheduler-DAGSchedulerEventProcessLoop.adoc#handleTaskCompletion-Success-ShuffleMapTask[`DAGScheduler` handles a `ShuffleMapTask` successful completion].
+
+|===
 
 A task can only belong to one stage and operate on a single partition. All tasks in a stage must be completed before the stages that follow can start.
 
@@ -13,12 +63,49 @@ Tasks are spawned one by one for each stage and partition.
 
 CAUTION: FIXME What are `stageAttemptId` and `taskAttemptId`?
 
-A task in Spark is represented by the `Task` abstract class with two concrete implementations:
+=== [[contract]] Task Contract
 
-* <<shufflemaptask, ShuffleMapTask>> that executes a task and divides the task's output to multiple buckets (based on the task's partitioner).
-* <<ResultTask, ResultTask>> that executes a task and sends the task's output back to the driver application.
+[source, scala]
+----
+def runTask(context: TaskContext): T
+def preferredLocations: Seq[TaskLocation] = Nil
+----
 
-The very last stage in a job consists of multiple `ResultTasks`, while earlier stages are a set of <<shufflemaptask, ShuffleMapTasks>>.
+NOTE: `Task` is a `private[spark]` contract.
+
+.Task Contract
+[cols="1,2",options="header",width="100%"]
+|===
+| Method
+| Description
+
+| [[runTask]] `runTask`
+| Used when a <<run, task runs>>.
+
+| [[preferredLocations]] `preferredLocations`
+| Used exclusively in `TaskSetManager` to link:spark-TaskSetManager.adoc#addPendingTask[register a task as pending execution] and link:spark-TaskSetManager.adoc#dequeueSpeculativeTask[dequeueSpeculativeTask].
+
+`preferredLocations` is an empty collection by default, i.e. a task has no location preferences, and so can be launched on any executor.
+
+Set when the custom tasks, i.e. link:spark-taskscheduler-ShuffleMapTask.adoc#preferredLocations[ShuffleMapTask] and link:spark-taskscheduler-ResultTask.adoc#preferredLocations[ResultTask], are created.
+|===
+
+=== [[creating-instance]] Creating Task Instance
+
+[source, scala]
+----
+Task[T](
+  val stageId: Int,
+  val stageAttemptId: Int,
+  val partitionId: Int,
+  var localProperties: Properties = new Properties,
+  serializedTaskMetrics: Array[Byte] =
+    SparkEnv.get.closureSerializer.newInstance().serialize(TaskMetrics.registered).array(),
+  val jobId: Option[Int] = None,
+  val appId: Option[String] = None,
+  val appAttemptId: Option[String] = None)
+extends Serializable
+----
 
 === [[attributes]] Task Attributes
 
@@ -34,7 +121,7 @@ A `Task` instance is uniquely identified by the following task attributes:
 
 * `localProperties` - local private properties of the task.
 
-=== [[run]][[execution]] Running Task Thread -- `run` Method
+=== [[run]] Running Task Thread -- `run` Method
 
 [source, scala]
 ----
@@ -44,19 +131,35 @@ run(
   metricsSystem: MetricsSystem): T
 ----
 
-`run` link:spark-blockmanager.adoc#registerTask[registers task attempt id to the executor's BlockManager] and link:spark-taskscheduler-taskcontext.adoc#creating-instance[creates a `TaskContextImpl`] that in turn gets set as the thread local link:spark-taskscheduler-taskcontext.adoc[TaskContext].
+`run` link:spark-blockmanager.adoc#registerTask[registers the task (identified as `taskAttemptId`) with the local `BlockManager`].
 
-If the task has been killed before the task runs it is <<kill, killed>> (with `interruptThread` flag disabled).
+NOTE: `run` uses link:spark-sparkenv.adoc#blockManager[`SparkEnv` to access `BlockManager`].
 
-The <<runTask, task runs>>.
+`run` link:spark-taskscheduler-TaskContextImpl.adoc#creating-instance[creates a `TaskContextImpl`] that in turn becomes the task's link:spark-taskscheduler-taskcontext.adoc#setTaskContext[TaskContext].
 
-CAUTION: FIXME Describe `catch` and `finally` blocks.
+NOTE: `run` is a `final` method and so must not be overriden.
 
-NOTE: When `run` is called from link:spark-executor-taskrunner.adoc#run[TaskRunner.run], the `Task` has just been deserialized from `taskBytes` that were sent over the wire to an executor. `localProperties` and link:spark-taskscheduler-taskmemorymanager.adoc[TaskMemoryManager] are already assigned.
+`run` checks <<_killed, _killed>> flag and, if enabled, <<kill, kills the task>> (with `interruptThread` flag disabled).
 
-=== [[runTask]] Running Task -- `runTask` Method
+`run` creates a Hadoop `CallerContext` and sets it.
 
-CAUTION: FIXME
+`run` <<runTask, runs the task>>.
+
+NOTE: This is the moment when the custom ``Task``'s <<runTask, runTask>> is executed.
+
+In the end, `run` link:spark-taskscheduler-TaskContextImpl.adoc#markTaskCompleted[notifies `TaskContextImpl` that the task has completed] (regardless of the final outcome -- a success or a failure).
+
+In case of any exceptions, `run` link:spark-taskscheduler-TaskContextImpl.adoc#markTaskFailed[notifies `TaskContextImpl` that the task has failed]. `run` link:spark-MemoryStore.adoc#releaseUnrollMemoryForThisTask[requests `MemoryStore` to release unroll memory for this task] (for both `ON_HEAP` and `OFF_HEAP` memory modes).
+
+NOTE: `run` uses link:spark-sparkenv.adoc#blockManager[`SparkEnv` to access `BlockManager`] that it uses to access link:spark-blockmanager.adoc#memoryStore[MemoryStore].
+
+`run` link:spark-MemoryManager.adoc[requests `MemoryManager` to notify any tasks waiting for execution memory to be freed to wake up and try to acquire memory again].
+
+`run` link:spark-taskscheduler-taskcontext.adoc#unset[unsets the task's `TaskContext`].
+
+NOTE: `run` uses link:spark-sparkenv.adoc#memoryManager[`SparkEnv` to access `MemoryManager`].
+
+NOTE: `run` is used exclusively when link:spark-executor-TaskRunner.adoc#run[`TaskRunner` starts]. The `Task` instance has just been deserialized from `taskBytes` that were sent over the wire to an executor. `localProperties` and link:spark-taskscheduler-taskmemorymanager.adoc[TaskMemoryManager] are already assigned.
 
 === [[states]] Task States
 
@@ -65,13 +168,13 @@ A task can be in one of the following states:
 * `LAUNCHING`
 * `RUNNING` when the task is being started.
 * `FINISHED` when the task finished with the serialized result.
-* `FAILED` when the task fails, e.g. when `FetchFailedException` (see link:spark-executor.adoc#FetchFailedException[FetchFailedException]), `CommitDeniedException` or any `Throwable` occur
+* `FAILED` when the task fails, e.g. when link:spark-TaskRunner-FetchFailedException.adoc[FetchFailedException], `CommitDeniedException` or any `Throwable` occurs
 * `KILLED` when an executor kills a task.
 * `LOST`
 
 States are the values of `org.apache.spark.TaskState`.
 
-NOTE: Task status updates are sent from executors to the driver through link:spark-executor-backends.adoc[ExecutorBackend].
+NOTE: Task status updates are sent from executors to the driver through link:spark-ExecutorBackend.adoc[ExecutorBackend].
 
 Task is finished when it is in one of `FINISHED`, `FAILED`, `KILLED`, `LOST`
 
@@ -88,7 +191,7 @@ collectAccumulatorUpdates(taskFailed: Boolean = false): Seq[AccumulableInfo]
 
 `collectAccumulatorUpdates` collects the latest values of accumulators used in a task (and returns the values as a collection of link:spark-accumulators.adoc#AccumulableInfo[AccumulableInfo]).
 
-NOTE: It is used in link:spark-executor-taskrunner.adoc[TaskRunner] to send a task's final results with the latest values of accumulators used.
+NOTE: `collectAccumulatorUpdates` is used when link:spark-executor-TaskRunner.adoc#run[`TaskRunner` runs a task] (and sends a task's final results).
 
 When `taskFailed` is `true` it filters out link:spark-accumulators.adoc[accumulators] with `countFailedValues` disabled.
 
@@ -107,20 +210,8 @@ kill(interruptThread: Boolean)
 
 `kill` marks the task to be killed, i.e. it sets the internal `_killed` flag to `true`.
 
-It calls link:spark-taskscheduler-taskcontext.adoc#markInterrupted[TaskContextImpl.markInterrupted] when `context` is set.
+`kill` calls link:spark-taskscheduler-TaskContextImpl.adoc#markInterrupted[TaskContextImpl.markInterrupted] when `context` is set.
 
 If `interruptThread` is enabled and the internal `taskThread` is available, `kill` interrupts it.
 
 CAUTION: FIXME When could `context` and `interruptThread` not be set?
-
-=== [[ShuffleMapTask]][[shufflemaptask]] ShuffleMapTask
-
-A *ShuffleMapTask* divides the elements of an RDD into multiple buckets (based on a partitioner specified in link:spark-rdd-dependencies.adoc#ShuffleDependency[ShuffleDependency]).
-
-=== [[ResultTask]] ResultTask
-
-CAUTION: FIXME
-
-=== [[taskMemoryManager]] `taskMemoryManager` attribute
-
-`taskMemoryManager` is the link:spark-taskscheduler-taskmemorymanager.adoc[TaskMemoryManager] that manages the memory allocated by the task.

@@ -29,7 +29,7 @@ Refer to link:spark-logging.adoc[Logging].
 
 `EventLoggingListener` requires an application id (`appId`), the application's optional attempt id (`appAttemptId`), `logBaseDir`, a link:spark-configuration.adoc[SparkConf] (as `sparkConf`) and Hadoop's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/conf/Configuration.html[Configuration] (as `hadoopConf`).
 
-NOTE: When initialized with no Hadoop's `Configuration` it calls link:varia/spark-hadoop.adoc[SparkHadoopUtil.get.newConfiguration(sparkConf)].
+NOTE: When initialized with no Hadoop's `Configuration` it calls link:spark-SparkHadoopUtil.adoc#newConfiguration[SparkHadoopUtil.get.newConfiguration(sparkConf)].
 
 === [[start]] Starting `EventLoggingListener` -- `start` method
 
@@ -79,7 +79,9 @@ NOTE: `start` is executed while link:spark-sparkcontext-creating-instance-intern
 logEvent(event: SparkListenerEvent, flushLogger: Boolean = false)
 ----
 
-`logEvent` logs `event` as JSON using `org.apache.spark.util.JsonProtocol` object.
+`logEvent` logs `event` as JSON.
+
+CAUTION: FIXME
 
 === [[stop]] Stopping `EventLoggingListener` -- `stop` method
 
@@ -106,15 +108,15 @@ NOTE: `stop` is executed while link:spark-sparkcontext.adoc#stop[`SparkContext` 
 
 === [[compressing-events]] Compressing Logged Events
 
-If <<spark_eventLog_compress, event compression is enabled>>, `CompressionCodec.createCodec(sparkConf)` is called to create a compression codec using a short codec name or the fully-qualified class name of a codec.
+If <<spark_eventLog_compress, event compression is enabled>>, events are compressed using link:spark-CompressionCodec.adoc#createCodec[CompressionCodec].
 
-TIP: Read link:spark-service-broadcastmanager.adoc#compression[Compression] to learn about the built-in compression codecs.
+TIP: Refer to link:spark-CompressionCodec.adoc[CompressionCodec] to learn about the available compression codecs.
 
 === [[settings]] Settings
 
 .Spark Properties
-[frame="topbot",cols="1,1,2",options="header",width="100%"]
-|======================
+[cols="1,1,2",options="header",width="100%"]
+|===
 | Spark Property | Default Value | Description
 | [[spark_eventLog_enabled]] `spark.eventLog.enabled` | `false` | Enables (`true`) or disables (`false`) persisting Spark events.
 | [[spark_eventLog_dir]] `spark.eventLog.dir` | `/tmp/spark-events` | Directory where events are logged, e.g. `hdfs://namenode:8021/directory`.
@@ -128,4 +130,4 @@ The directory must exist before link:spark-sparkcontext-creating-instance-intern
 | [[spark_eventLog_compress]] `spark.eventLog.compress` | `false` | Enables (`true`) or disables (`false`) <<compressing-events, event compression>>.
 
 | [[spark_eventLog_testing]] `spark.eventLog.testing` | `false` | Internal flag for testing purposes that enables adding JSON events to the internal `loggedEvents` array.
-|======================
+|===

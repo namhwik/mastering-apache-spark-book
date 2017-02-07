@@ -142,7 +142,7 @@ After the polling, `start` checks if the internal <<currentOffsets, currentOffse
 
 Ultimately, `start` pauses all partitions (using Kafka's link:++https://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/Consumer.html#pause(java.util.Collection)++[Consumer.pause] with the internal collection of topics and their current offsets).
 
-=== [[compute]] Computing `KafkaRDD` for Batch Interval -- `compute` Method
+=== [[compute]] Generating `KafkaRDD` for Batch Interval -- `compute` Method
 
 [source, scala]
 ----
@@ -218,8 +218,8 @@ getPreferredHosts: java.util.Map[TopicPartition, String]
 `getPreferredHosts` relies exclusively on the link:spark-streaming-kafka-LocationStrategy.adoc[LocationStrategy] that was passed in when <<creating-instance, creating a `DirectKafkaInputDStream` instance>>.
 
 .DirectKafkaInputDStream.getPreferredHosts and Location Strategies
-[frame="topbot",cols="1,2",options="header",width="100%"]
-|======================
+[cols="1,2",options="header",width="100%"]
+|===
 | Location Strategy | DirectKafkaInputDStream.getPreferredHosts
 | `PreferBrokers`
 | <<getBrokers, Calls Kafka broker(s) for topic partition assignments>>.
@@ -233,7 +233,7 @@ It does not call Kafka broker(s) for topic assignments.
 | Returns the preferred hosts that were passed in when `PreferFixed` was created.
 
 It does not call Kafka broker(s) for topic assignments.
-|======================
+|===
 
 NOTE: `getPreferredHosts` is used when <<compute, creating a KafkaRDD for a batch interval>>.
 

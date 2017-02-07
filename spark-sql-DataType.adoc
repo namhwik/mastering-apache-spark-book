@@ -3,8 +3,8 @@
 `DataType` abstract class is the base type of all built-in data types in Spark SQL, e.g. strings, longs.
 
 .Built-In Data Types
-[align="center",width="100%",frame="topbot",options="header"]
-|======================
+[align="center",width="100%",options="header"]
+|===
 ||Functions          |Description
 .5+^.^| *Atomic Types*
 | [[TimestampType]] `TimestampType` | Represents `java.sql.Timestamp` values.
@@ -26,7 +26,7 @@
 | `MapType` |
 | `ArrayType` |
 | `NullType` |
-|======================
+|===
 
 You can extend the type system and create your own <<user-defined-types, user-defined types (UDTs)>>.
 

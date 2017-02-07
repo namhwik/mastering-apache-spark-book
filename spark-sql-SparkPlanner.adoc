@@ -3,8 +3,8 @@
 `SparkPlanner` is a concrete link:spark-sql-queryplanner.adoc[QueryPlanner] (indirectly through extending link:spark-sql-queryplanner.adoc#SparkStrategies[SparkStrategies]) that allows for plugging in a collection of additional link:spark-sql-queryplanner.adoc#SparkStrategy[SparkStrategy] transformations.
 
 .`SparkStrategy` Transformations in `SparkPlanner` (in alphabetic order)
-[frame="topbot",cols="1,2",options="header",width="100%"]
-|======================
+[cols="1,2",options="header",width="100%"]
+|===
 | SparkStrategy | Description
 | `Aggregation` |
 | link:spark-sql-BasicOperators.adoc[`BasicOperators`] |
@@ -14,7 +14,7 @@
 | `InMemoryScans` |
 | link:spark-sql-JoinSelection.adoc[JoinSelection] |
 | `SpecialLimits` |
-|======================
+|===
 
 `SparkPlanner` requires a link:spark-sparkcontext.adoc[SparkContext], a link:spark-sql-SQLConf.adoc[SQLConf], and a collection of `Strategy` objects (as `extraStrategies`) when created.
 

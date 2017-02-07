@@ -21,15 +21,15 @@ INFO SparkContext: Registered listener org.apache.spark.scheduler.StatsReportLis
 See link:spark-sparkcontext.adoc[`SparkContext` -- Entry Point to Spark (Core)].
 ====
 
-=== [[SparkListenerInterface]] `SparkListenerInterface` -- Internal Contract for Spark Listeners
+=== [[SparkListenerInterface]] SparkListenerInterface -- Internal Contract for Spark Listeners
 
 `SparkListenerInterface` is an `private[spark]` contract for Spark listeners to intercept events from the Spark scheduler.
 
 NOTE: <<SparkListener, SparkListener>> and <<SparkFirehoseListener, SparkFirehoseListener>> Spark listeners are direct implementations of `SparkListenerInterface` contract to help developing more sophisticated Spark listeners.
 
 .`SparkListenerInterface` Methods (listed in alphabetical order)
-[frame="topbot",cols="1,1,2",options="header",width="100%"]
-|======================
+[cols="1,1,2",options="header",width="100%"]
+|===
 | Method | Event | Reason
 | `onApplicationEnd` | [[SparkListenerApplicationEnd]] `SparkListenerApplicationEnd` |
 `SparkContext` does `postApplicationEnd`.
@@ -52,16 +52,17 @@ link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[`BlockManagerMasterEndpo
 | `onExecutorMetricsUpdate` | [[SparkListenerExecutorMetricsUpdate]] `SparkListenerExecutorMetricsUpdate` |
 
 | `onExecutorAdded` | [[SparkListenerExecutorAdded]] `SparkListenerExecutorAdded` |
-link:spark-scheduler-backends-CoarseGrainedSchedulerBackend.adoc#RegisterExecutor[`DriverEndpoint` RPC endpoint (of `CoarseGrainedSchedulerBackend`) handles `RegisterExecutor` message], `MesosFineGrainedSchedulerBackend` does `resourceOffers`, and `LocalSchedulerBackendEndpoint` starts.
+link:spark-CoarseGrainedSchedulerBackend-DriverEndpoint.adoc#RegisterExecutor[`DriverEndpoint` RPC endpoint (of `CoarseGrainedSchedulerBackend`) handles `RegisterExecutor` message], `MesosFineGrainedSchedulerBackend` does `resourceOffers`, and `LocalSchedulerBackendEndpoint` starts.
 
 | `onExecutorRemoved` | [[SparkListenerExecutorRemoved]] `SparkListenerExecutorRemoved` |
-link:spark-scheduler-backends-CoarseGrainedSchedulerBackend.adoc#removeExecutor[`DriverEndpoint` RPC endpoint (of `CoarseGrainedSchedulerBackend`) does `removeExecutor`] and `MesosFineGrainedSchedulerBackend` does `removeExecutor`.
+link:spark-CoarseGrainedSchedulerBackend-DriverEndpoint.adoc#removeExecutor[`DriverEndpoint` RPC endpoint (of `CoarseGrainedSchedulerBackend`) does `removeExecutor`] and `MesosFineGrainedSchedulerBackend` does `removeExecutor`.
 
 | `onJobEnd` | [[SparkListenerJobEnd]] `SparkListenerJobEnd` |
 `DAGScheduler` does `cleanUpAfterSchedulerStop`, `handleTaskCompletion`, `failJobAndIndependentStages`, and markMapStageJobAsFinished.
 
-| `onJobStart` | [[SparkListenerJobStart]] `SparkListenerJobStart` |
-`DAGScheduler` does `handleJobSubmitted` and `handleMapStageSubmitted`.
+| `onJobStart`
+| [[SparkListenerJobStart]] `SparkListenerJobStart`
+| `DAGScheduler` handles link:spark-dagscheduler-DAGSchedulerEventProcessLoop.adoc#handleJobSubmitted[JobSubmitted] and link:spark-dagscheduler-DAGSchedulerEventProcessLoop.adoc#handleMapStageSubmitted[MapStageSubmitted] messages.
 
 | `onStageCompleted` | [[SparkListenerStageCompleted]] `SparkListenerStageCompleted` |
 `DAGScheduler` does `markStageAsFinished`.
@@ -82,13 +83,13 @@ link:spark-dagscheduler-DAGSchedulerEventProcessLoop.adoc#handleGetTaskResult[`D
 `SparkContext` does `unpersistRDD`.
 
 | `onOtherEvent` | [[SparkListenerEvent]] `SparkListenerEvent` |
-|======================
+|===
 
 === [[builtin-implementations]] Built-In Spark Listeners
 
 .Built-In Spark Listeners
-[frame="topbot",cols="1,2",options="header",width="100%"]
-|======================
+[cols="1,2",options="header",width="100%"]
+|===
 | Spark Listener | Description
 | link:spark-scheduler-listeners-eventlogginglistener.adoc[EventLoggingListener] | Logs JSON-encoded events to a file that can later be read by link:spark-history-server.adoc[History Server]
 | link:spark-scheduler-listeners-statsreportlistener.adoc[StatsReportListener] |
@@ -104,4 +105,4 @@ link:spark-dagscheduler-DAGSchedulerEventProcessLoop.adoc#handleGetTaskResult[`D
 | link:spark-webui-SQLListener.adoc[SQLListener] / link:spark-history-server-SQLHistoryListener.adoc[SQLHistoryListener] | Support for link:spark-history-server.adoc[History Server]
 | link:spark-streaming/spark-streaming-jobscheduler.adoc#StreamingListenerBus[StreamingListenerBus] |
 | link:spark-webui-JobProgressListener.adoc[JobProgressListener] |
-|======================
+|===
