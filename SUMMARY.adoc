@@ -231,7 +231,7 @@
 
 === Spark Core / Tools
 
-. link:spark-shell.adoc[Spark Shell -- `spark-shell` shell script]
+. link:spark-shell.adoc[Spark Shell -- spark-shell shell script]
 
 . link:spark-webui.adoc[Web UI -- Spark Application's Web Console]
 .. link:spark-webui-jobs.adoc[Jobs Tab]
@@ -244,18 +244,18 @@
 ... link:spark-webui-BlockStatusListener.adoc[`BlockStatusListener` Spark Listener]
 
 .. link:spark-webui-environment.adoc[Environment Tab]
-... link:spark-webui-EnvironmentListener.adoc[`EnvironmentListener` Spark Listener]
+... link:spark-webui-EnvironmentListener.adoc[EnvironmentListener Spark Listener]
 
 .. link:spark-webui-executors.adoc[Executors Tab]
-... link:spark-webui-executors-ExecutorsListener.adoc[`ExecutorsListener` Spark Listener]
+... link:spark-webui-executors-ExecutorsListener.adoc[ExecutorsListener Spark Listener]
 
 .. link:spark-webui-sql.adoc[SQL Tab]
-... link:spark-webui-SQLListener.adoc[`SQLListener` Spark Listener]
+... link:spark-webui-SQLListener.adoc[SQLListener Spark Listener]
 
-.. link:spark-webui-JobProgressListener.adoc[`JobProgressListener` Spark Listener]
-.. link:spark-webui-StorageStatusListener.adoc[`StorageStatusListener` Spark Listener]
-.. link:spark-webui-StorageListener.adoc[`StorageListener` Spark Listener]
-.. link:spark-webui-RDDOperationGraphListener.adoc[`RDDOperationGraphListener` Spark Listener]
+.. link:spark-webui-JobProgressListener.adoc[JobProgressListener Spark Listener]
+.. link:spark-webui-StorageStatusListener.adoc[StorageStatusListener Spark Listener]
+.. link:spark-webui-StorageListener.adoc[StorageListener Spark Listener]
+.. link:spark-webui-RDDOperationGraphListener.adoc[RDDOperationGraphListener Spark Listener]
 .. link:spark-webui-SparkUI.adoc[SparkUI]
 
 . link:spark-submit.adoc[Spark Submit -- `spark-submit` shell script]
@@ -292,12 +292,14 @@
 
 . link:spark-rdd.adoc[RDD -- Resilient Distributed Dataset]
 .. link:spark-rdd-lineage.adoc[RDD Lineage -- Logical Execution Plan]
+.. link:spark-TaskLocation.adoc[TaskLocation]
 .. link:spark-rdd-parallelcollectionrdd.adoc[ParallelCollectionRDD]
 .. link:spark-rdd-mappartitionsrdd.adoc[MapPartitionsRDD]
 .. link:spark-rdd-OrderedRDDFunctions.adoc[OrderedRDDFunctions]
 .. link:spark-rdd-cogroupedrdd.adoc[CoGroupedRDD]
 .. link:spark-rdd-SubtractedRDD.adoc[SubtractedRDD]
 .. link:spark-rdd-hadooprdd.adoc[HadoopRDD]
+.. link:spark-rdd-NewHadoopRDD.adoc[NewHadoopRDD]
 .. link:spark-rdd-ShuffledRDD.adoc[ShuffledRDD]
 .. link:spark-rdd-blockrdd.adoc[BlockRDD]
 
@@ -329,6 +331,7 @@
 
 . link:spark-broadcast.adoc[Broadcast variables]
 . link:spark-accumulators.adoc[Accumulators]
+.. link:spark-AccumulatorContext.adoc[AccumulatorContext]
 
 === Spark Core / Services
 
@@ -343,6 +346,8 @@
 .. link:spark-dagscheduler-stages.adoc[Stage -- Physical Unit Of Execution]
 ... link:spark-dagscheduler-ShuffleMapStage.adoc[ShuffleMapStage -- Intermediate Stage in Execution DAG]
 ... link:spark-dagscheduler-ResultStage.adoc[ResultStage -- Final Stage in Job]
+... link:spark-dagscheduler-StageInfo.adoc[StageInfo]
+
 .. link:spark-dagscheduler-DAGSchedulerEventProcessLoop.adoc[DAGScheduler Event Bus]
 .. link:spark-dagscheduler-JobListener.adoc[JobListener]
 ... link:spark-dagscheduler-JobWaiter.adoc[JobWaiter]
@@ -360,13 +365,16 @@
 .. link:spark-MapStatus.adoc[MapStatus -- Shuffle Map Output Status]
 
 .. link:spark-taskscheduler-tasksets.adoc[TaskSet -- Set of Tasks for Stage]
-.. link:spark-taskscheduler-schedulable.adoc[Schedulable]
-... link:spark-TaskSetManager.adoc[TaskSetManager]
+
+.. link:spark-TaskSetManager.adoc[TaskSetManager]
+... link:spark-taskscheduler-schedulable.adoc[Schedulable]
 ... link:spark-taskscheduler-pool.adoc[Schedulable Pool]
 ... link:spark-taskscheduler-schedulablebuilders.adoc[Schedulable Builders]
 .... link:spark-taskscheduler-FIFOSchedulableBuilder.adoc[FIFOSchedulableBuilder]
 .... link:spark-taskscheduler-FairSchedulableBuilder.adoc[FairSchedulableBuilder]
 ... link:spark-taskscheduler-schedulingmode.adoc[Scheduling Mode -- `spark.scheduler.mode` Spark Property]
+... link:spark-TaskInfo.adoc[TaskInfo]
+
 .. link:spark-taskschedulerimpl.adoc[TaskSchedulerImpl -- Default TaskScheduler]
 ... link:spark-taskschedulerimpl-speculative-execution.adoc[Speculative Execution of Tasks]
 ... link:spark-taskschedulerimpl-TaskResultGetter.adoc[TaskResultGetter]
@@ -455,7 +463,7 @@
 .. link:spark-CleanerListener.adoc[CleanerListener]
 
 . link:spark-dynamic-allocation.adoc[Dynamic Allocation (of Executors)]
-.. link:spark-service-executor-allocation-manager.adoc[ExecutorAllocationManager -- Allocation Manager for Spark Core]
+.. link:spark-ExecutorAllocationManager.adoc[ExecutorAllocationManager -- Allocation Manager for Spark Core]
 .. link:spark-service-ExecutorAllocationClient.adoc[ExecutorAllocationClient]
 .. link:spark-service-ExecutorAllocationListener.adoc[ExecutorAllocationListener]
 .. link:spark-service-ExecutorAllocationManagerSource.adoc[ExecutorAllocationManagerSource]
