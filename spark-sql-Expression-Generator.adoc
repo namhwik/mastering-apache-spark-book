@@ -1,0 +1,171 @@
+== [[Generator]] Generator -- Catalyst Expressions that Generate Zero Or More Rows
+
+`Generator` is a <<contract, contract>> for link:spark-sql-Expression.adoc[Catalyst expressions] that can <<eval, produce>> zero or more rows given a single input row.
+
+`Generator` is not link:spark-sql-Expression.adoc#foldable[foldable] and not link:spark-sql-Expression.adoc#nullable[nullable] by default.
+
+[[supportCodegen]]
+`Generator` supports link:spark-sql-whole-stage-codegen.adoc[whole-stage codegen] when not link:spark-sql-Expression.adoc#CodegenFallback[CodegenFallback] by default.
+
+[[generator-implementations]]
+.Generators (in alphabetical order)
+[width="100%",cols="1,2",options="header"]
+|===
+| Name
+| Description
+
+| `CollectionGenerator`
+|
+
+| <<ExplodeBase, ExplodeBase>>
+|
+
+| <<Explode, Explode>>
+|
+
+| [[GeneratorOuter]] `GeneratorOuter`
+|
+
+| `HiveGenericUDTF`
+|
+
+| `Inline`
+| Corresponds to `inline` and `inline_outer` functions.
+
+| `JsonTuple`
+|
+
+| <<PosExplode, PosExplode>>
+|
+
+| `Stack`
+|
+
+| [[UnresolvedGenerator]] `UnresolvedGenerator`
+a| Represents an unresolved <<Generator, generator>>.
+
+Created when `AstBuilder` link:spark-sql-AstBuilder.adoc#withGenerate[creates `Generate`] for `LATERAL VIEW` that corresponds to the following:
+
+```
+LATERAL VIEW (OUTER)?
+generatorFunctionName (arg1, arg2, ...)
+tblName
+AS? col1, col2, ...
+```
+
+NOTE: `UnresolvedGenerator` is link:spark-sql-Analyzer.adoc#ResolveFunctions[resolved to `Generator` by `ResolveFunctions`] (in `Analyzer`).
+
+| `UserDefinedGenerator`
+| Used exclusively in the now-deprecated `explode` operator
+|===
+
+[[lateral-view]]
+[NOTE]
+====
+You can only have one generator per select clause that is enforced by link:spark-sql-Analyzer.adoc#ExtractGenerator[ExtractGenerator] in `Analyzer`, e.g.
+
+```
+scala> xys.select(explode($"xs"), explode($"ys")).show
+org.apache.spark.sql.AnalysisException: Only one generator allowed per select clause but found 2: explode(xs), explode(ys);
+  at org.apache.spark.sql.catalyst.analysis.Analyzer$ExtractGenerator$$anonfun$apply$20.applyOrElse(Analyzer.scala:1670)
+  at org.apache.spark.sql.catalyst.analysis.Analyzer$ExtractGenerator$$anonfun$apply$20.applyOrElse(Analyzer.scala:1662)
+  at org.apache.spark.sql.catalyst.plans.logical.LogicalPlan$$anonfun$resolveOperators$1.apply(LogicalPlan.scala:62)
+```
+
+If you want to have more than one generator in a structured query you should use `LATERAL VIEW` which is supported in SQL only, e.g.
+
+[source, scala]
+----
+val arrayTuple = (Array(1,2,3), Array("a","b","c"))
+val ncs = Seq(arrayTuple).toDF("ns", "cs")
+
+scala> ncs.show
++---------+---------+
+|       ns|       cs|
++---------+---------+
+|[1, 2, 3]|[a, b, c]|
++---------+---------+
+
+scala> ncs.createOrReplaceTempView("ncs")
+
+val q = """
+  SELECT n, c FROM ncs
+  LATERAL VIEW explode(ns) nsExpl AS n
+  LATERAL VIEW explode(cs) csExpl AS c
+"""
+
+scala> sql(q).show
++---+---+
+|  n|  c|
++---+---+
+|  1|  a|
+|  1|  b|
+|  1|  c|
+|  2|  a|
+|  2|  b|
+|  2|  c|
+|  3|  a|
+|  3|  b|
+|  3|  c|
++---+---+
+----
+====
+
+=== [[contract]] Generator Contract
+
+[source, scala]
+----
+package org.apache.spark.sql.catalyst.expressions
+
+trait Generator extends Expression {
+  // only required methods that have no implementation
+  def elementSchema: StructType
+  def eval(input: InternalRow): TraversableOnce[InternalRow]
+}
+----
+
+.(Subset of) Generator Contract (in alphabetical order)
+[cols="1,2",options="header",width="100%"]
+|===
+| Method
+| Description
+
+| [[elementSchema]] `elementSchema`
+| link:spark-sql-StructType.adoc[StructType] of the elements generated
+
+| [[eval]] `eval`
+| Used when...
+|===
+
+=== [[Explode]] Explode Generator Unary Expression
+
+`Explode` is a unary expression that produces a sequence of records for each value in the array or map.
+
+`Explode` is a result of executing `explode` function (in SQL and link:spark-sql-functions.adoc#explode[functions])
+
+[source, scala]
+----
+scala> sql("SELECT explode(array(10,20))").explain
+== Physical Plan ==
+Generate explode([10,20]), false, false, [col#68]
++- Scan OneRowRelation[]
+
+scala> sql("SELECT explode(array(10,20))").queryExecution.optimizedPlan.expressions(0)
+res18: org.apache.spark.sql.catalyst.expressions.Expression = explode([10,20])
+
+val arrayDF = Seq(Array(0,1)).toDF("array")
+scala> arrayDF.withColumn("num", explode('array)).explain
+== Physical Plan ==
+Generate explode(array#93), true, false, [array#93, num#102]
++- LocalTableScan [array#93]
+----
+
+=== [[PosExplode]] PosExplode
+
+CAUTION: FIXME
+
+=== [[ExplodeBase]] ExplodeBase Unary Expression
+
+`ExplodeBase` is the base class for <<Explode, Explode>> and <<PosExplode, PosExplode>>.
+
+`ExplodeBase` is link:spark-sql-Expression.adoc#UnaryExpression[UnaryExpression] and <<Generator, Generator>> with link:spark-sql-Expression.adoc#CodegenFallback[CodegenFallback].

@@ -1,0 +1,18 @@
+== [[JsonToStructs]] JsonToStructs Unary Expression
+
+`JsonToStructs` is a link:spark-sql-Expression.adoc#UnaryExpression[unary] expression with link:spark-sql-Expression.adoc#TimeZoneAwareExpression[timezone] support and link:spark-sql-Expression.adoc#CodegenFallback[CodegenFallback] that represents link:spark-sql-functions.adoc#from_json[from_json] function.
+
+=== [[validateSchemaLiteral]] Parsing Table Schema for String Literals -- `validateSchemaLiteral` Method
+
+[source, scala]
+----
+validateSchemaLiteral(exp: Expression): StructType
+----
+
+`validateSchemaLiteral` requests link:spark-sql-CatalystSqlParser.adoc[CatalystSqlParser] to link:spark-sql-AbstractSqlParser.adoc#parseTableSchema[parseTableSchema] for link:spark-sql-Expression-Literal.adoc[Literal] of link:spark-sql-DataType.adoc#StringType[StringType].
+
+For any other non-``StringType`` link:spark-sql-DataType.adoc[types], `validateSchemaLiteral` reports a `AnalysisException`:
+
+```
+Expected a string literal instead of [expression]
+```

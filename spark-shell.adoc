@@ -1,10 +1,14 @@
-== Spark Shell -- `spark-shell` shell script
+== [[spark-shell]] Spark Shell -- spark-shell shell script
 
-*Spark shell* is an interactive shell to learn how to make the most out of Apache Spark. This is a Spark application writted in Scala to offer a command-line environment with auto-completion (under `TAB` key) where you can run ad-hoc queries and get familiar with the features of Spark (that help you in developing your own standalone Spark applications). It is a very convenient tool to explore the many things available in Spark with immediate feedback. It is one of the many reasons why link:spark-overview.adoc#why-spark[Spark is so helpful for tasks to process datasets of any size].
+*Spark shell* is an interactive environment where you can learn how to make the most out of Apache Spark quickly and conveniently.
 
-There are variants of Spark shell for different languages: `spark-shell` for Scala and `pyspark` for Python.
+TIP: Spark shell is particularly helpful for fast interactive prototyping.
 
-NOTE: This document uses `spark-shell` only.
+Under the covers, Spark shell is a standalone Spark application written in Scala that offers environment with auto-completion (using `TAB` key) where you can run ad-hoc queries and get familiar with the features of Spark (that help you in developing your own standalone Spark applications). It is a very convenient tool to explore the many things available in Spark with immediate feedback. It is one of the many reasons why link:spark-overview.adoc#why-spark[Spark is so helpful for tasks to process datasets of any size].
+
+There are variants of Spark shell for different languages: `spark-shell` for Scala, `pyspark` for Python and `sparkR` for R.
+
+NOTE: This document (and the book in general) uses `spark-shell` for Scala only.
 
 You can start Spark shell using <<using-spark-shell, `spark-shell` script>>.
 
@@ -13,7 +17,7 @@ $ ./bin/spark-shell
 scala>
 ```
 
-`spark-shell` is an extension of Scala REPL with automatic instantiation of link:spark-sql-sparksession.adoc[SparkSession] as `spark` (and link:spark-sparkcontext.adoc[SparkContext] as `sc`).
+`spark-shell` is an extension of Scala REPL with automatic instantiation of link:spark-sql-SparkSession.adoc[SparkSession] as `spark` (and link:spark-SparkContext.adoc[SparkContext] as `sc`).
 
 [source, scala]
 ----
@@ -25,7 +29,7 @@ scala> spark.version
 res0: String = 2.1.0-SNAPSHOT
 ----
 
-`spark-shell` also imports link:spark-sql-sparksession.adoc#implicits[Scala SQL's implicits] and link:spark-sql-sparksession.adoc#sql[`sql` method].
+`spark-shell` also imports link:spark-sql-SparkSession.adoc#implicits[Scala SQL's implicits] and link:spark-sql-SparkSession.adoc#sql[`sql` method].
 
 [source, scala]
 ----
@@ -73,14 +77,14 @@ Type :help for more information.
 scala>
 ```
 
-Spark shell creates an instance of link:spark-sql-sparksession.adoc[SparkSession] under the name `spark` for you (so you don't have to know the details how to do it yourself on day 1).
+Spark shell creates an instance of link:spark-sql-SparkSession.adoc[SparkSession] under the name `spark` for you (so you don't have to know the details how to do it yourself on day 1).
 
 ```
 scala> :type spark
 org.apache.spark.sql.SparkSession
 ```
 
-Besides, there is also `sc` value created which is an instance of link:spark-sparkcontext.adoc[SparkContext].
+Besides, there is also `sc` value created which is an instance of link:spark-SparkContext.adoc[SparkContext].
 
 ```
 scala> :type sc
@@ -101,7 +105,7 @@ scala> :q
 | Spark Property | Default Value | Description
 | [[spark_repl_class_uri]] `spark.repl.class.uri` | `null` | Used in `spark-shell` to create REPL ClassLoader to load new classes defined in the Scala REPL as a user types code.
 
-Enable `INFO` logging level for link:spark-executor.adoc[org.apache.spark.executor.Executor] logger to have the value printed out to the logs:
+Enable `INFO` logging level for link:spark-Executor.adoc[org.apache.spark.executor.Executor] logger to have the value printed out to the logs:
 
 `INFO Using REPL class URI: [classUri]`
 

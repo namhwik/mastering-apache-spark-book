@@ -142,7 +142,7 @@ Refer to link:../spark-logging.adoc[Logging].
 . `driverUrl`
 . `driverRef` -- link:../spark-RpcEndpointRef.adoc[RpcEndpointRef] to the driver's FIXME
 . [[conf]] https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/conf/YarnConfiguration.html[YarnConfiguration]
-. `sparkConf` -- link:../spark-configuration.adoc[SparkConf]
+. `sparkConf` -- link:../spark-SparkConf.adoc[SparkConf]
 . [[amClient]] `amClient` https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/client/api/AMRMClient.html[AMRMClient] for `ContainerRequest`
 . `ApplicationAttemptId`
 . [[securityMgr]] `SecurityManager`
@@ -165,11 +165,11 @@ It creates an empty <<failedExecutorsTimeStamps, queue of failed executors>>.
 
 It sets the internal `executorFailuresValidityInterval` to link:spark-yarn-settings.adoc#spark.yarn.executor.failuresValidityInterval[spark.yarn.executor.failuresValidityInterval].
 
-It sets the internal `executorMemory` to link:spark-executor.adoc#spark_executor_memory[spark.executor.memory].
+It sets the internal `executorMemory` to link:../spark-Executor.adoc#spark.executor.memory[spark.executor.memory].
 
 It sets the internal `memoryOverhead` to link:spark-yarn-settings.adoc#spark.yarn.executor.memoryOverhead[spark.yarn.executor.memoryOverhead]. If unavailable, it is set to the maximum of 10% of `executorMemory` and `384`.
 
-It sets the internal `executorCores` to link:../spark-executor.adoc#spark.executor.cores[spark.executor.cores].
+It sets the internal `executorCores` to link:../spark-Executor.adoc#spark.executor.cores[spark.executor.cores].
 
 It creates the internal `resource` to Hadoop YARN's https://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/Resource.html[Resource] with both `executorMemory + memoryOverhead` memory and `executorCores` CPU cores.
 

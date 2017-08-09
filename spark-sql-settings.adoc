@@ -2,7 +2,7 @@
 
 The following list are the settings used to configure Spark SQL applications.
 
-You can set them in a link:spark-sql-sparksession.adoc[SparkSession] upon instantiation using link:spark-sql-sparksession-builder.adoc#config[config] method.
+You can set them in a link:spark-sql-SparkSession.adoc[SparkSession] upon instantiation using link:spark-sql-sparksession-builder.adoc#config[config] method.
 
 [source, scala]
 ----
@@ -15,6 +15,36 @@ val spark: SparkSession = SparkSession.builder
 ----
 <1> Sets <<spark_sql_warehouse_dir, spark.sql.warehouse.dir>> for the Spark SQL session
 
+.Spark SQL Properties (in alphabetical order)
+[cols="1,1,2",options="header",width="100%"]
+|===
+| Name
+| Default
+| Description
+
+| [[spark.sql.catalogImplementation]] `spark.sql.catalogImplementation`
+| `in-memory`
+a| (internal) Selects the active catalog implementation from:
+
+* `in-memory`
+* `hive`
+
+TIP: Read link:spark-sql-ExternalCatalog.adoc[ExternalCatalog -- System Catalog of Permanent Entities].
+
+TIP: You can enable Hive support in a `SparkSession` using link:spark-sql-SparkSession.adoc#enableHiveSupport[`enableHiveSupport` builder method].
+
+| [[spark.sql.sources.default]] `spark.sql.sources.default`
+| `parquet`
+a| Defines the default data source to use for link:spark-sql-DataFrameReader.adoc[DataFrameReader].
+
+Used when:
+
+* Reading (link:spark-sql-DataFrameWriter.adoc[DataFrameWriter]) or writing (link:spark-sql-DataFrameReader.adoc[DataFrameReader]) datasets
+* link:spark-sql-Catalog.adoc#createExternalTable[Creating external table from a path] (in `Catalog.createExternalTable`)
+
+* Reading (`DataStreamReader`) or writing (`DataStreamWriter`) in Structured Streaming
+|===
+
 === [[spark_sql_warehouse_dir]] spark.sql.warehouse.dir
 
 `spark.sql.warehouse.dir` (default: `${system:user.dir}/spark-warehouse`) is the default location of Hive warehouse directory (using Derby) with managed databases and tables.
@@ -23,36 +53,11 @@ See also the official https://cwiki.apache.org/confluence/display/Hive/AdminManu
 
 === [[spark.sql.parquet.filterPushdown]] spark.sql.parquet.filterPushdown
 
-`spark.sql.parquet.filterPushdown` (default: `true`) is a flag to control the link:spark-sql-catalyst-optimizer-PushDownPredicate.adoc[filter predicate push-down optimization] for data sources using parquet file format.
-
-=== [[spark.sql.catalogImplementation]] spark.sql.catalogImplementation
-
-`spark.sql.catalogImplementation` (default: `in-memory`) is an internal setting to select the active catalog implementation.
-
-There are two possible values:
-
-* `in-memory` (default)
-* `hive`
-
-TIP: Read link:spark-sql-ExternalCatalog.adoc[ExternalCatalog -- System Catalog of Permanent Entities].
-
-TIP: You can enable Hive support in a `SparkSession` using link:spark-sql-sparksession.adoc#enableHiveSupport[`enableHiveSupport` builder method].
-
-=== [[spark.sql.shuffle.partitions]] spark.sql.shuffle.partitions
-
-`spark.sql.shuffle.partitions` (default: `200`) -- the default number of partitions to use when shuffling data for joins or aggregations.
+`spark.sql.parquet.filterPushdown` (default: `true`) is a flag to control the link:spark-sql-Optimizer-PushDownPredicate.adoc[filter predicate push-down optimization] for data sources using parquet file format.
 
 === [[spark.sql.allowMultipleContexts]] spark.sql.allowMultipleContexts
 
 `spark.sql.allowMultipleContexts` (default: `true`) controls whether creating multiple SQLContexts/HiveContexts is allowed.
-
-=== [[spark.sql.autoBroadcastJoinThreshold]][[autoBroadcastJoinThreshold]] spark.sql.autoBroadcastJoinThreshold
-
-`spark.sql.autoBroadcastJoinThreshold` (default: `10 * 1024 * 1024`) configures the maximum size in bytes for a table that will be broadcast to all worker nodes when performing a join. If the size of the statistics of the logical plan of a DataFrame is at most the setting, the DataFrame is broadcast for join.
-
-Negative values or `0` disable broadcasting.
-
-Consult link:spark-sql-joins.adoc#broadcast-join[Broadcast Join] for more information about the topic.
 
 === [[spark.sql.columnNameOfCorruptRecord]] spark.sql.columnNameOfCorruptRecord
 
@@ -62,16 +67,6 @@ Consult link:spark-sql-joins.adoc#broadcast-join[Broadcast Join] for more inform
 
 `spark.sql.dialect` - FIXME
 
-=== [[spark.sql.sources.default]] spark.sql.sources.default
-
-`spark.sql.sources.default` (default: `parquet`) sets the default data source to use in input/output.
-
-It is used when reading or writing data in link:spark-sql-dataframewriter.adoc[DataFrameWriter] and link:spark-sql-dataframereader.adoc[DataFrameReader], when link:spark-sql-Catalog.adoc#createExternalTable[creating external table from a path] (in `Catalog.createExternalTable`) and in the streaming link:spark-sql-streaming-DataStreamReader.adoc[DataStreamReader] and link:spark-sql-streaming-DataStreamWriter.adoc[DataStreamWriter].
-
 === [[spark.sql.streaming.checkpointLocation]] spark.sql.streaming.checkpointLocation
 
 `spark.sql.streaming.checkpointLocation` is the default location for storing checkpoint data for link:spark-sql-streaming-StreamingQuery.adoc[continuously executing queries].
-
-=== [[spark.sql.codegen.wholeStage]] spark.sql.codegen.wholeStage
-
-`spark.sql.codegen.wholeStage` (default: `true`) controls whether the whole stage (of multiple operators) will be compiled into single java method (`true`) or not (`false`).

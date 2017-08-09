@@ -33,7 +33,7 @@ a|
 * `MesosFineGrainedSchedulerBackend`
 |===
 
-A scheduler backend is created and started as part of SparkContext's initialization (when link:spark-taskscheduler.adoc[TaskSchedulerImpl] is started - see link:spark-sparkcontext-creating-instance-internals.adoc#createTaskScheduler[Creating Scheduler Backend and Task Scheduler]).
+A scheduler backend is created and started as part of SparkContext's initialization (when link:spark-TaskScheduler.adoc[TaskSchedulerImpl] is started - see link:spark-sparkcontext-creating-instance-internals.adoc#createTaskScheduler[Creating Scheduler Backend and Task Scheduler]).
 
 CAUTION: FIXME Image how it gets created with SparkContext in play here or in SparkContext doc.
 
@@ -69,7 +69,9 @@ NOTE: `org.apache.spark.scheduler.SchedulerBackend` is a `private[spark]` Scala 
 | Description
 
 | [[applicationId]] `applicationId`
-| Id of a Spark application
+| Unique identifier of Spark Application
+
+Used when `TaskSchedulerImpl` is asked for the <<applicationId, unique identifier of a Spark application>> (that is actually a part of link:spark-TaskScheduler.adoc#applicationId[TaskScheduler contract]).
 
 | [[applicationAttemptId]] `applicationAttemptId`
 | Attempt id of a Spark application
@@ -78,12 +80,10 @@ Only supported by link:spark-yarn-yarnschedulerbackend.adoc#applicationAttemptId
 
 Used when...
 
-NOTE: `applicationAttemptId` is also a part of link:spark-taskscheduler.adoc#contract[TaskScheduler contract] and link:spark-taskschedulerimpl.adoc#applicationAttemptId[`TaskSchedulerImpl` directly calls the SchedulerBackend's `applicationAttemptId`].
+NOTE: `applicationAttemptId` is also a part of link:spark-TaskScheduler.adoc#contract[TaskScheduler contract] and link:spark-taskschedulerimpl.adoc#applicationAttemptId[`TaskSchedulerImpl` directly calls the SchedulerBackend's `applicationAttemptId`].
 
 | [[defaultParallelism]] `defaultParallelism`
-|
-
-Used by link:spark-taskscheduler.adoc[TaskScheduler] as a hint for sizing jobs.
+| Used when `TaskSchedulerImpl` link:spark-taskschedulerimpl.adoc#defaultParallelism[finds the default level of parallelism] (as a hint for sizing jobs).
 
 | [[getDriverLogUrls]] `getDriverLogUrls`
 | Returns no URLs by default and only supported by link:yarn/spark-yarn-cluster-yarnclusterschedulerbackend.adoc#YarnClusterSchedulerBackend[YarnClusterSchedulerBackend]
@@ -94,9 +94,12 @@ Used by link:spark-taskscheduler.adoc[TaskScheduler] as a hint for sizing jobs.
 Used when link:spark-taskschedulerimpl.adoc#waitBackendReady[`TaskSchedulerImpl` waits until `SchedulerBackend` is ready] (which happens link:spark-sparkcontext-creating-instance-internals.adoc#postStartHook[just before `SparkContext` is fully initialized]).
 
 | [[killTask]] `killTask`
-| Used when...
+a| Reports a `UnsupportedOperationException` by default.
 
-Throws a `UnsupportedOperationException` by default.
+Used when:
+
+* `TaskSchedulerImpl` link:spark-taskschedulerimpl.adoc#cancelTasks[cancels the tasks for a stage]
+* `TaskSetManager` is link:spark-TaskSetManager.adoc#handleSuccessfulTask[notified about successful task attempt].
 
 | [[reviveOffers]] `reviveOffers`
 a|

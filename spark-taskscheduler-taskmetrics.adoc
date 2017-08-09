@@ -57,6 +57,14 @@ Used when `TaskMetrics` <<fromAccumulators, re-creates `TaskMetrics` from `Accum
 NOTE: `externalAccums` is a `transient` and `lazy` value.
 |===
 
+=== [[accumulators]] `accumulators` Method
+
+CAUTION: FIXME
+
+=== [[mergeShuffleReadMetrics]] `mergeShuffleReadMetrics` Method
+
+CAUTION: FIXME
+
 === [[memoryBytesSpilled]] `memoryBytesSpilled` Method
 
 CAUTION: FIXME
@@ -160,4 +168,4 @@ register(sc: SparkContext): Unit
 
 `register` link:spark-accumulators.adoc#register[registers the internal accumulators] (from <<nameToAccums, nameToAccums>> internal registry) with `countFailedValues` enabled (`true`).
 
-NOTE: `register` is used exclusively when link:spark-dagscheduler-stages.adoc#makeNewStageAttempt[`Stage` is requested for its new attempt].
+NOTE: `register` is used exclusively when link:spark-DAGScheduler-Stage.adoc#makeNewStageAttempt[`Stage` is requested for its new attempt].

@@ -26,10 +26,10 @@ res0: org.apache.spark.SparkEnv = org.apache.spark.SparkEnv@49322d04
 | [[broadcastManager]] broadcastManager | BroadcastManager |
 | [[blockManager]] <<BlockManager, blockManager>> | link:spark-blockmanager.adoc[BlockManager] |
 | securityManager | SecurityManager |
-| [[metricsSystem]] metricsSystem | link:spark-metrics.adoc[MetricsSystem] |
+| [[metricsSystem]] metricsSystem | link:spark-MetricsSystem.adoc[MetricsSystem] |
 | [[memoryManager]] memoryManager | link:spark-MemoryManager.adoc[MemoryManager] |
 | outputCommitCoordinator | OutputCommitCoordinator |
-| [[conf]] conf | link:spark-configuration.adoc[SparkConf]
+| [[conf]] conf | link:spark-SparkConf.adoc[SparkConf]
 |===
 
 [[internal-properties]]
@@ -114,7 +114,7 @@ It creates a link:spark-MemoryManager.adoc[MemoryManager] based on <<spark_memor
 CAUTION: FIXME A picture with `SparkEnv`, `NettyBlockTransferService` and the ports "armed".
 
 [[BlockManagerMaster]]
-`create` creates a link:spark-BlockManagerMaster.adoc#creating-instance[BlockManagerMaster] object with the `BlockManagerMaster` RPC endpoint reference (by <<registerOrLookupEndpoint, registering or looking it up by name>> and link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[BlockManagerMasterEndpoint]), the input link:spark-configuration.adoc[SparkConf], and the input `isDriver` flag.
+`create` creates a link:spark-BlockManagerMaster.adoc#creating-instance[BlockManagerMaster] object with the `BlockManagerMaster` RPC endpoint reference (by <<registerOrLookupEndpoint, registering or looking it up by name>> and link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[BlockManagerMasterEndpoint]), the input link:spark-SparkConf.adoc[SparkConf], and the input `isDriver` flag.
 
 .Creating BlockManager for the Driver
 image::images/sparkenv-driver-blockmanager.png[align="center"]
@@ -185,13 +185,13 @@ createDriverEnv(
 .Spark Environment for driver
 image::images/sparkenv-driver.png[align="center"]
 
-`createDriverEnv` accepts an instance of link:spark-configuration.adoc[SparkConf], link:spark-deployment-environments.adoc[whether it runs in local mode or not], link:spark-LiveListenerBus.adoc[LiveListenerBus], the number of cores to use for execution in local mode or `0` otherwise, and a link:spark-service-outputcommitcoordinator.adoc[OutputCommitCoordinator] (default: none).
+`createDriverEnv` accepts an instance of link:spark-SparkConf.adoc[SparkConf], link:spark-deployment-environments.adoc[whether it runs in local mode or not], link:spark-LiveListenerBus.adoc[LiveListenerBus], the number of cores to use for execution in local mode or `0` otherwise, and a link:spark-service-outputcommitcoordinator.adoc[OutputCommitCoordinator] (default: none).
 
 `createDriverEnv` ensures that link:spark-driver.adoc#spark_driver_host[spark.driver.host] and link:spark-driver.adoc#spark_driver_port[spark.driver.port] settings are defined.
 
 It then passes the call straight on to the <<create, create helper method>> (with `driver` executor id, `isDriver` enabled, and the input parameters).
 
-NOTE: `createDriverEnv` is exclusively used by link:spark-sparkcontext-creating-instance-internals.adoc#createSparkEnv[SparkContext to create a `SparkEnv`] (while a link:spark-sparkcontext.adoc#creating-instance[SparkContext is being created for the driver]).
+NOTE: `createDriverEnv` is exclusively used by link:spark-sparkcontext-creating-instance-internals.adoc#createSparkEnv[SparkContext to create a `SparkEnv`] (while a link:spark-SparkContext.adoc#creating-instance[SparkContext is being created for the driver]).
 
 === [[createExecutorEnv]] Creating SparkEnv for Executor -- `createExecutorEnv` Method
 
@@ -254,7 +254,7 @@ Otherwise, `stop` turns `isStopped` flag on, stops all `pythonWorkers` and reque
 3. link:spark-service-broadcastmanager.adoc#stop[BroadcastManager]
 4. link:spark-blockmanager.adoc#stop[BlockManager]
 5. link:spark-BlockManagerMaster.adoc#stop[BlockManagerMaster]
-6. link:spark-metrics.adoc#stop[MetricsSystem]
+6. link:spark-MetricsSystem.adoc#stop[MetricsSystem]
 7. link:spark-service-outputcommitcoordinator.adoc#stop[OutputCommitCoordinator]
 
 `stop` link:spark-rpc.adoc#shutdown[requests `RpcEnv` to shut down] and link:spark-rpc.adoc#awaitTermination[waits till it terminates].
@@ -265,7 +265,7 @@ Only on the driver, `stop` deletes the <<driverTmpDir, temporary directory>>. Yo
 WARN Exception while deleting Spark temp dir: [path]
 ```
 
-NOTE: `stop` is used when link:spark-sparkcontext.adoc#stop[`SparkContext` stops] (on the driver) and link:spark-executor.adoc#stop[`Executor` stops].
+NOTE: `stop` is used when link:spark-SparkContext.adoc#stop[`SparkContext` stops] (on the driver) and link:spark-Executor.adoc#stop[`Executor` stops].
 
 === [[settings]] Settings
 

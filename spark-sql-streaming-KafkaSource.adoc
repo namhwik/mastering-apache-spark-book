@@ -1,3 +1,0 @@
-== [[KafkaSource]] KafkaSource
-
-CAUTION: FIXME

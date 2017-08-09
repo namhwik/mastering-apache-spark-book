@@ -2,7 +2,7 @@
 
 `TaskSetManager` is a <<schedulable, Schedulable>> that manages scheduling of tasks in a <<taskSet, TaskSet>>.
 
-NOTE: A link:spark-taskscheduler-tasksets.adoc[TaskSet] represents a set of link:spark-taskscheduler-tasks.adoc[tasks] that correspond to missing link:spark-rdd-partitions.adoc[partitions] of a link:spark-dagscheduler-stages.adoc[stage].
+NOTE: A link:spark-taskscheduler-tasksets.adoc[TaskSet] represents a set of link:spark-taskscheduler-tasks.adoc[tasks] that correspond to missing link:spark-rdd-partitions.adoc[partitions] of a link:spark-DAGScheduler-Stage.adoc[stage].
 
 <<creating-instance, `TaskSetManager` is created>> when link:spark-taskschedulerimpl.adoc#createTaskSetManager[`TaskSchedulerImpl` submits tasks (for a given `TaskSet`)].
 
@@ -200,7 +200,7 @@ NOTE: It _appears_ that the entires stay forever, i.e. are never removed (perhap
 | [[tasks]] `tasks`
 | Lookup table of link:spark-taskscheduler-tasks.adoc[Tasks] (per partition id) to schedule execution of.
 
-NOTE: The tasks all belong to a single <<taskSet, TaskSet>> that was given when <<creating-instance, `TaskSetManager` was created>> (which actually represent a single link:spark-dagscheduler-stages.adoc[Stage]).
+NOTE: The tasks all belong to a single <<taskSet, TaskSet>> that was given when <<creating-instance, `TaskSetManager` was created>> (which actually represent a single link:spark-DAGScheduler-Stage.adoc[Stage]).
 
 | [[tasksSuccessful]] `tasksSuccessful`
 |
@@ -564,7 +564,7 @@ It then removes `tid` task from <<runningTasksSet, runningTasksSet>> internal re
 
 `handleSuccessfulTask` link:spark-dagscheduler.adoc#taskEnded[notifies `DAGScheduler` that `tid` task ended successfully] (with the `Task` object from <<tasks, tasks>> internal registry and the result as `Success`).
 
-At this point, `handleSuccessfulTask` looks up the other <<taskAttempts, running task attempts>> of `tid` task and link:spark-SchedulerBackend.adoc#killTask[requests `SchedulerBackend` to kill them]. You should see the following INFO message in the logs:
+At this point, `handleSuccessfulTask` finds the other <<taskAttempts, running task attempts>> of `tid` task and link:spark-SchedulerBackend.adoc#killTask[requests `SchedulerBackend` to kill them] (since they are no longer necessary now when at least one task attempt has completed successfully). You should see the following INFO message in the logs:
 
 [options="wrap"]
 ----

@@ -1,0 +1,7 @@
+== [[SortAggregateExec]] SortAggregateExec Aggregate Physical Operator for Sort-Based Aggregation
+
+CAUTION: FIXME
+
+=== [[doExecute]] `doExecute` Method
+
+CAUTION: FIXME

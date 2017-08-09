@@ -19,6 +19,10 @@ log4j.logger.org.apache.spark.storage.BlockManagerMaster=INFO
 Refer to link:spark-logging.adoc[Logging].
 ====
 
+=== [[removeExecutorAsync]] `removeExecutorAsync` Method
+
+CAUTION: FIXME
+
 === [[contains]] `contains` Method
 
 CAUTION: FIXME
@@ -27,8 +31,8 @@ CAUTION: FIXME
 
 `BlockManagerMaster` takes the following when created:
 
-* [[driverEndpoint]] link:spark-RpcEndpointRef.adoc[RpcEndpointRef]
-* [[conf]] link:spark-configuration.adoc[SparkConf]
+* [[driverEndpoint]] link:spark-RpcEndpointRef.adoc[RpcEndpointRef] to...FIXME
+* [[conf]] link:spark-SparkConf.adoc[SparkConf]
 * [[isDriver]] Flag whether `BlockManagerMaster` is created for the driver or executors.
 
 `BlockManagerMaster` initializes the <<internal-registries, internal registries and counters>>.
@@ -72,9 +76,9 @@ removeBlock(blockId: BlockId): Unit
 removeRdd(rddId: Int, blocking: Boolean)
 ----
 
-`removeRdd` removes all the blocks of `rddId` RDD, possibly in a `blocking` fashion.
+`removeRdd` removes all the blocks of `rddId` RDD, possibly in `blocking` fashion.
 
-It posts a `RemoveRdd(rddId)` message to link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[BlockManagerMaster RPC endpoint] on a separate thread.
+Internally, `removeRdd` posts a `RemoveRdd(rddId)` message to link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[BlockManagerMaster RPC endpoint] on a separate thread.
 
 If there is an issue, you should see the following WARN message in the logs and the entire exception:
 
@@ -147,7 +151,7 @@ Otherwise, a `SparkException` is thrown.
 BlockManagerMasterEndpoint returned false, expected true.
 ```
 
-=== [[registerBlockManager]] Registering BlockManager to Driver -- `registerBlockManager` Method
+=== [[registerBlockManager]] Registering BlockManager with Driver -- `registerBlockManager` Method
 
 [source, scala]
 ----
@@ -157,7 +161,7 @@ registerBlockManager(
   slaveEndpoint: RpcEndpointRef): BlockManagerId
 ----
 
-When called, `registerBlockManager` prints the following INFO message to the logs:
+`registerBlockManager` prints the following INFO message to the logs:
 
 ```
 INFO BlockManagerMaster: Registering BlockManager [blockManagerId]
@@ -166,7 +170,11 @@ INFO BlockManagerMaster: Registering BlockManager [blockManagerId]
 .Registering BlockManager with the Driver
 image::images/spark-BlockManagerMaster-RegisterBlockManager.png[align="center"]
 
-`registerBlockManager` then informs the driver about the `blockManagerId` link:spark-blockmanager.adoc[BlockManager] registered by posting a blocking link:spark-blockmanager-BlockManagerMasterEndpoint.adoc#RegisterBlockManager[`RegisterBlockManager` message to BlockManagerMaster RPC endpoint]. It waits until a confirmation comes.
+`registerBlockManager` then notifies the driver that the `blockManagerId` link:spark-blockmanager.adoc[BlockManager] tries to register. `registerBlockManager` posts a link:spark-blockmanager-BlockManagerMasterEndpoint.adoc#RegisterBlockManager[blocking `RegisterBlockManager` message to BlockManagerMaster RPC endpoint].
+
+NOTE: The input `maxMemSize` is the link:spark-blockmanager.adoc#maxMemory[total available on-heap and off-heap memory for storage on a `BlockManager`].
+
+`registerBlockManager` waits until a confirmation comes (as link:spark-blockmanager.adoc#BlockManagerId[BlockManagerId]) that becomes the return value.
 
 You should see the following INFO message in the logs:
 
@@ -174,11 +182,9 @@ You should see the following INFO message in the logs:
 INFO BlockManagerMaster: Registered BlockManager [updatedId]
 ```
 
-And `updatedId` is returned.
+NOTE: `registerBlockManager` is used when `BlockManager` link:spark-blockmanager.adoc#initialize[is initialized] or link:spark-blockmanager.adoc#reregister[re-registers itself with the driver] (and reports the blocks).
 
-NOTE: `registerBlockManager` is called while `BlockManager` link:spark-blockmanager.adoc#initialize[initializes] (on the driver or executors) or link:spark-blockmanager.adoc#reregister[re-registers blocks with the driver].
-
-=== [[updateBlockInfo]] Sending `UpdateBlockInfo` to Driver -- `updateBlockInfo` Method
+=== [[updateBlockInfo]] Relaying Block Status Update From BlockManager to Driver (by Sending Blocking UpdateBlockInfo to BlockManagerMaster RPC endpoint) -- `updateBlockInfo` Method
 
 [source, scala]
 ----
@@ -199,6 +205,8 @@ DEBUG BlockManagerMaster: Updated info of block [blockId]
 ```
 
 `updateBlockInfo` returns the response from the `BlockManagerMaster` RPC endpoint.
+
+NOTE: `updateBlockInfo` is used when `BlockManager` link:spark-blockmanager.adoc#tryToReportBlockStatus[reports a block status update to the driver].
 
 === [[getLocations-block]] Get Block Locations of One Block -- `getLocations` Method
 
@@ -253,7 +261,7 @@ getMemoryStatus: Map[BlockManagerId, (Long, Long)]
 
 `getMemoryStatus` posts a `GetMemoryStatus` message link:spark-blockmanager-BlockManagerMasterEndpoint.adoc[BlockManagerMaster RPC endpoint] and waits for a response which becomes the return value.
 
-=== [[getStorageStatus]] `getStorageStatus` Method
+=== [[getStorageStatus]] Storage Status (Posting GetStorageStatus to BlockManagerMaster RPC endpoint) -- `getStorageStatus` Method
 
 [source, scala]
 ----

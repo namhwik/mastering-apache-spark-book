@@ -1,8 +1,6 @@
-== Standard Functions -- `functions` object
+== [[functions]] Standard Functions -- functions Object
 
-`org.apache.spark.sql.functions` object offers many built-in functions to process values in link:spark-sql-columns.adoc[Columns] in ``Dataset``s.
-
-NOTE: The `functions` object is an experimental feature of Spark since version 1.3.0.
+`org.apache.spark.sql.functions` object defines many built-in functions to work with link:spark-sql-Column.adoc[Columns] in link:spark-sql-Dataset.adoc[Datasets].
 
 You can access the functions using the following `import` statement:
 
@@ -11,41 +9,155 @@ You can access the functions using the following `import` statement:
 import org.apache.spark.sql.functions._
 ----
 
-There are over 300 functions in the `functions` object. Some functions are transformations of link:spark-sql-columns.adoc[Column] objects (or column names) into other `Column` objects or transform `DataFrame` into `DataFrame`.
+There are over 200 functions in the `functions` object.
 
-The functions are grouped by functional areas:
+```
+scala> spark.catalog.listFunctions.count
+res1: Long = 251
+```
 
-.Functions in Spark SQL
-[align="center",width="100%",options="header"]
+[[standard-functions]]
+.(Subset of) Standard Functions in Spark SQL
+[align="center",cols="1,1,2",width="100%",options="header"]
 |===
-||Functions          |Description
-.6+^.^|*Window functions* |<<rank, rank, dense_rank, and percent_rank>> | Ranking records per window partition
-|<<ntile, ntile>> |link:spark-sql-functions.adoc#ntile[ntile]
-|<<row_number, row_number>> | Sequential numbering per window partition
-|<<cume_dist, cume_dist>> | Cumulative distribution of records across window partitions
-|<<lag, lag>> |
-|<<lead, lead>> |link:spark-sql-functions.adoc#lead[lead]
+|
+|Name
+|Description
+
+.3+^.^| [[aggregate-functions]] *Aggregate functions*
+
+| <<count, count>>
+|
+
+| <<grouping, grouping>>
+| Indicates whether a specified column is aggregated or not
+
+| <<grouping_id, grouping_id>>
+| Computes the level of grouping
+
+.3+^.^| *Collection functions*
+
+| <<explode, explode>>
+|
+
+| <<explode_outer, explode_outer>>
+| *(new in 2.2.0)* Creates a new row for each element in the given array or map column.
+
+If the array/map is `null` or empty then `null` is produced.
+
+| <<from_json, from_json>>
+| Parses a column with a JSON string into a link:spark-sql-StructType.adoc[StructType] or link:spark-sql-DataType.adoc#ArrayType[ArrayType] of `StructType` elements with the specified schema.
+
+.5+^.^| *Date and time functions*
+| link:spark-sql-functions-datetime.adoc#current_timestamp[current_timestamp]
+|
+
+| link:spark-sql-functions-datetime.adoc#to_date[to_date]
+|
+
+| link:spark-sql-functions-datetime.adoc#to_timestamp[to_timestamp]
+|
+
+| link:spark-sql-functions-datetime.adoc#unix_timestamp[unix_timestamp]
+| Converts current or specified time to Unix timestamp (in seconds)
+
+| link:spark-sql-functions-datetime.adoc#window[window]
+| Generates tumbling time windows
+
+1+^.^| *Math functions*
+| <<bin, bin>>
+| Converts the value of a long column to binary format
+
+.4+^.^| *Regular functions*
+
+| <<broadcast, broadcast>>
+|
+
+| <<creating-columns, col>> and <<creating-columns, column>>
+| Creating link:spark-sql-Column.adoc[Columns]
+
+| <<expr, expr>>
+|
+
+| <<struct, struct>>
+|
+
+.2+^.^| *String functions*
+| <<split, split>>
+|
+
+| <<upper, upper>>
+|
+
+1+^.^| *UDF functions*
+| <<udf, udf>>
+| Creating UDFs
+
+.6+^.^|*Window functions*
+|<<rank, rank, dense_rank, percent_rank>>
+| Ranking records per window partition
+
+| <<ntile, ntile>>
+| Gives the ntile group if (from `1` to `n` inclusive) in an ordered window partition
+
+|<<row_number, row_number>>
+| Sequential numbering per window partition
+
+|<<cume_dist, cume_dist>>
+| Cumulative distribution of records across window partitions
+
+|<<lag, lag>>
+|
+
+|<<lead, lead>>
+|
 |===
 
-* <<udf, Defining UDFs>>
-* <<creating-columns, Creating Columns using `col` and `column` methods>>
-* <<string-functions, String functions>>
-** <<split, split>>
-** <<upper, upper>> (chained with `reverse`)
-* Aggregate functions
-** <<count, count>>
-* <<non-aggregate-functions, Non-aggregate functions>> (aka _normal functions_)
-** <<struct, struct>>
-** <<broadcast, broadcast>> (for `DataFrame`)
-** <<expr, expr>>
-* Date and time functions
-* <<explode, explode>>
-* <<window, window>>
-* ..._and others_
+TIP: The page gives only a brief ovierview of the many functions available in `functions` object and so you should read the http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$[official documentation of the `functions` object].
 
-TIP: You should read the http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$[official documentation of the functions object].
+=== [[count]] `count` Function
 
-=== [[explode]] explode
+CAUTION: FIXME
+
+=== [[explode_outer]] `explode_outer` Function
+
+[source, scala]
+----
+explode_outer(e: Column): Column
+----
+
+`explode_outer` generates a new row for each element in `e` array or map column.
+
+NOTE: Unlike <<explode, explode>>, `explode_outer` generates `null` when the array or map is `null` or empty.
+
+[source, scala]
+----
+val arrays = Seq((1,Seq.empty[String])).toDF("id", "array")
+scala> arrays.printSchema
+root
+ |-- id: integer (nullable = false)
+ |-- array: array (nullable = true)
+ |    |-- element: string (containsNull = true)
+scala> arrays.select(explode_outer($"array")).show
++----+
+| col|
++----+
+|null|
++----+
+----
+
+Internally, `explode_outer` creates a link:spark-sql-Column.adoc[Column] with link:spark-sql-Expression-Generator.adoc#GeneratorOuter[GeneratorOuter] and link:spark-sql-Expression-Generator.adoc#Explode[Explode] Catalyst expressions.
+
+[source, scala]
+----
+val explodeOuter = explode_outer($"array").expr
+scala> println(explodeOuter.numberedTreeString)
+00 generatorouter(explode('array))
+01 +- explode('array)
+02    +- 'array
+----
+
+=== [[explode]] `explode` Function
 
 CAUTION: FIXME
 
@@ -61,7 +173,9 @@ scala> Seq(Array(0,1,2)).toDF("array").withColumn("num", explode('array)).show
 +---------+---+
 ----
 
-=== [[rank]][[dense_rank]][[percent_rank]] Ranking Records per Window Partition -- `rank` functions
+NOTE: `explode` function is an equivalent of link:spark-sql-dataset-operators.adoc#flatMap[`flatMap` operator] for `Dataset`.
+
+=== [[rank]][[dense_rank]][[percent_rank]] Ranking Records per Window Partition -- `rank` Function
 
 [source, scala]
 ----
@@ -192,7 +306,7 @@ scala> dataset.union(dataset).withColumn("percent_rank", percent_rank over byBuc
 +---+------+------------+
 ----
 
-=== [[cume_dist]] Cumulative Distribution of Records Across Window Partitions -- `cume_dist` function
+=== [[cume_dist]] Cumulative Distribution of Records Across Window Partitions -- `cume_dist` Function
 
 [source, scala]
 ----
@@ -225,7 +339,7 @@ scala> dataset.withColumn("cume_dist", cume_dist over windowSpec).show
 +---+------+------------------+
 ----
 
-=== [[lag]] `lag` functions
+=== [[lag]] `lag` Function
 
 [source, scala]
 ----
@@ -278,7 +392,7 @@ scala> dataset.withColumn("lag", lag('id, 2, "<default_value>") over windowSpec)
 
 CAUTION: FIXME It looks like `lag` with a default value has a bug -- the default value's not used at all.
 
-=== [[lead]] `lead` functions
+=== [[lead]] `lead` Function
 
 [source, scala]
 ----
@@ -349,7 +463,7 @@ scala> dataset.withColumn("lead", lead('id, 2, "<default_value>") over windowSpe
 
 CAUTION: FIXME It looks like `lead` with a default value has a bug -- the default value's not used at all.
 
-=== [[row_number]] Sequential numbering per window partition -- `row_number` functions
+=== [[row_number]] Sequential numbering per window partition -- `row_number` Function
 
 [source, scala]
 ----
@@ -391,7 +505,7 @@ scala> dataset.withColumn("row_number", row_number() over windowSpec).show
 +---+------+----------+
 ----
 
-=== [[ntile]] `ntile` function
+=== [[ntile]] `ntile` Function
 
 [source, scala]
 ----
@@ -422,7 +536,7 @@ scala> dataset.select('*, ntile(3) over byBuckets as "ntile").show
 
 CAUTION: FIXME How is `ntile` different from `rank`? What about performance?
 
-=== [[creating-columns]][[col]][[column]] Creating Columns -- `col` and `column` methods
+=== [[creating-columns]][[col]][[column]] Creating Columns -- `col` and `column` Functions
 
 [source, scala]
 ----
@@ -430,7 +544,7 @@ col(colName: String): Column
 column(colName: String): Column
 ----
 
-`col` and `column` methods create a link:spark-sql-columns.adoc[Column] that you can later use to reference a column in a dataset.
+`col` and `column` methods create a link:spark-sql-Column.adoc[Column] that you can later use to reference a column in a dataset.
 
 [source, scala]
 ----
@@ -443,7 +557,7 @@ scala> val cityCol = column("city")
 cityCol: org.apache.spark.sql.Column = city
 ----
 
-=== [[udf]] Defining UDFs (udf factories)
+=== [[udf]] Defining UDFs -- `udf` Function
 
 [source, scala]
 ----
@@ -500,9 +614,7 @@ scala> df.withColumn("len", byTwo($"num")).show
 +---+---+
 ----
 
-=== [[string-functions]] String functions
-
-==== [[split]] split function
+=== [[split]] `split` Function
 
 [source, scala]
 ----
@@ -529,7 +641,7 @@ scala> withSplit.show
 
 NOTE: `.$|()[{^?*+\` are RegEx's meta characters and are considered special.
 
-==== [[upper]] upper function
+=== [[upper]] `upper` Function
 
 [source, scala]
 ----
@@ -555,11 +667,7 @@ scala> withUpperReversed.show
 +---+---+-----+-----+
 ----
 
-=== [[non-aggregate-functions]] Non-aggregate functions
-
-They are also called *normal functions*.
-
-==== [[struct]] struct functions
+=== [[struct]] `struct` Functions
 
 [source, scala]
 ----
@@ -583,16 +691,16 @@ scala> df.withColumn("struct", struct($"name", $"val")).show
 +---+---+-----+---------+
 ----
 
-==== [[broadcast]] broadcast function
+=== [[broadcast]] `broadcast` Function
 
 [source, scala]
 ----
 broadcast[T](df: Dataset[T]): Dataset[T]
 ----
 
-`broadcast` function marks the input link:spark-sql-dataset.adoc[Dataset] small enough to be used in broadcast `join`.
+`broadcast` function marks the input link:spark-sql-Dataset.adoc[Dataset] small enough to be used in broadcast `join`.
 
-TIP: Consult link:spark-sql-joins.adoc#broadcast-join[Broadcast Join] document.
+TIP: Read up on link:spark-sql-joins-broadcast.adoc[Broadcast Joins (aka Map-Side Joins)].
 
 [source, scala]
 ----
@@ -601,47 +709,47 @@ val right = Seq(("aa", 0.99), ("bb", 0.57)).toDF("token", "prob").as[(String, Do
 
 scala> left.join(broadcast(right), "token").explain(extended = true)
 == Parsed Logical Plan ==
-'Join UsingJoin(Inner,List('token))
-:- Project [_1#42 AS id#45, _2#43 AS token#46]
-:  +- LocalRelation [_1#42, _2#43]
+'Join UsingJoin(Inner,List(token))
+:- Project [_1#123 AS id#126, _2#124 AS token#127]
+:  +- LocalRelation [_1#123, _2#124]
 +- BroadcastHint
-   +- Project [_1#55 AS token#58, _2#56 AS prob#59]
-      +- LocalRelation [_1#55, _2#56]
+   +- Project [_1#136 AS token#139, _2#137 AS prob#140]
+      +- LocalRelation [_1#136, _2#137]
 
 == Analyzed Logical Plan ==
 token: string, id: int, prob: double
-Project [token#46, id#45, prob#59]
-+- Join Inner, (token#46 = token#58)
-   :- Project [_1#42 AS id#45, _2#43 AS token#46]
-   :  +- LocalRelation [_1#42, _2#43]
+Project [token#127, id#126, prob#140]
++- Join Inner, (token#127 = token#139)
+   :- Project [_1#123 AS id#126, _2#124 AS token#127]
+   :  +- LocalRelation [_1#123, _2#124]
    +- BroadcastHint
-      +- Project [_1#55 AS token#58, _2#56 AS prob#59]
-         +- LocalRelation [_1#55, _2#56]
+      +- Project [_1#136 AS token#139, _2#137 AS prob#140]
+         +- LocalRelation [_1#136, _2#137]
 
 == Optimized Logical Plan ==
-Project [token#46, id#45, prob#59]
-+- Join Inner, (token#46 = token#58)
-   :- Project [_1#42 AS id#45, _2#43 AS token#46]
-   :  +- Filter isnotnull(_2#43)
-   :     +- LocalRelation [_1#42, _2#43]
+Project [token#127, id#126, prob#140]
++- Join Inner, (token#127 = token#139)
+   :- Project [_1#123 AS id#126, _2#124 AS token#127]
+   :  +- Filter isnotnull(_2#124)
+   :     +- LocalRelation [_1#123, _2#124]
    +- BroadcastHint
-      +- Project [_1#55 AS token#58, _2#56 AS prob#59]
-         +- Filter isnotnull(_1#55)
-            +- LocalRelation [_1#55, _2#56]
+      +- Project [_1#136 AS token#139, _2#137 AS prob#140]
+         +- Filter isnotnull(_1#136)
+            +- LocalRelation [_1#136, _2#137]
 
 == Physical Plan ==
-*Project [token#46, id#45, prob#59]
-+- *BroadcastHashJoin [token#46], [token#58], Inner, BuildRight
-   :- *Project [_1#42 AS id#45, _2#43 AS token#46]
-   :  +- *Filter isnotnull(_2#43)
-   :     +- LocalTableScan [_1#42, _2#43]
+*Project [token#127, id#126, prob#140]
++- *BroadcastHashJoin [token#127], [token#139], Inner, BuildRight
+   :- *Project [_1#123 AS id#126, _2#124 AS token#127]
+   :  +- *Filter isnotnull(_2#124)
+   :     +- LocalTableScan [_1#123, _2#124]
    +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, string, true]))
-      +- *Project [_1#55 AS token#58, _2#56 AS prob#59]
-         +- *Filter isnotnull(_1#55)
-            +- LocalTableScan [_1#55, _2#56]
+      +- *Project [_1#136 AS token#139, _2#137 AS prob#140]
+         +- *Filter isnotnull(_1#136)
+            +- LocalTableScan [_1#136, _2#137]
 ----
 
-==== [[expr]] expr function
+=== [[expr]] `expr` Function
 
 [source, scala]
 ----
@@ -674,48 +782,338 @@ scala> ds.filter(filterExpr).show
 +---+-----+
 ----
 
-Internally, `expr` uses the active session's link:spark-sql-sessionstate.adoc[sqlParser] or creates a new  link:spark-sql-sql-parsers.adoc#SparkSqlParser[SparkSqlParser] to call link:spark-sql-sql-parsers.adoc#ParserInterface[parseExpression] method.
+Internally, `expr` uses the active session's link:spark-sql-SessionState.adoc[sqlParser] or creates a new  link:spark-sql-SparkSqlParser.adoc[SparkSqlParser] to call link:spark-sql-ParserInterface.adoc#parseExpression[parseExpression] method.
 
-=== [[count]] count
-
-CAUTION: FIXME
-
-=== [[window]] Generating Tumbling Time Windows -- `window` functions
+=== [[grouping]] `grouping` Aggregate Function
 
 [source, scala]
 ----
-window(
-  timeColumn: Column,
-  windowDuration: String): Column  // <1>
-window(
-  timeColumn: Column,
-  windowDuration: String,
-  slideDuration: String): Column   // <2>
-window(
-  timeColumn: Column,
-  windowDuration: String,
-  slideDuration: String,
-  startTime: String): Column
+grouping(e: Column): Column
+grouping(columnName: String): Column  // <1>
 ----
-<1> With `slideDuration` as `windowDuration` and `0 second` for `startTime`
-<2> With `0 second` for `startTime`
+<1> Calls the first `grouping` with `columnName` as a `Column`
 
-`window` generates tumbling time windows of `windowDuration` duration given a `timeColumn` timestamp specifying column.
+`grouping` is an aggregate function that indicates whether a specified column is aggregated or not and:
+
+* returns `1` if the column is in a subtotal and is `NULL`
+* returns `0` if the underlying value is `NULL` or any other value
+
+NOTE: `grouping` can only be used with link:spark-sql-multi-dimensional-aggregation.adoc#cube[cube], link:spark-sql-multi-dimensional-aggregation.adoc#rollup[rollup] or `GROUPING SETS` multi-dimensional aggregate operators (and is verified when link:spark-sql-Analyzer-CheckAnalysis.adoc#Grouping[`Analyzer` does check analysis]).
+
+From https://cwiki.apache.org/confluence/display/Hive/Enhanced&#43;Aggregation%2C&#43;Cube%2C&#43;Grouping&#43;and&#43;Rollup#EnhancedAggregation,Cube,GroupingandRollup-Grouping\_\_IDfunction[Hive's documentation about Grouping__ID function] (that can somehow help to understand `grouping`):
+
+> When aggregates are displayed for a column its value is `null`. This may conflict in case the column itself has some `null` values. There needs to be some way to identify `NULL` in column, which means aggregate and `NULL` in column, which means value. `GROUPING__ID` function is the solution to that.
 
 [source, scala]
 ----
-scala> window('time, "5 seconds")
-res0: org.apache.spark.sql.Column = timewindow(time, 5000000, 5000000, 0) AS `window`
+val tmpWorkshops = Seq(
+  ("Warsaw", 2016, 2),
+  ("Toronto", 2016, 4),
+  ("Toronto", 2017, 1)).toDF("city", "year", "count")
+
+// there seems to be a bug with nulls
+// and so the need for the following union
+val cityNull = Seq(
+  (null.asInstanceOf[String], 2016, 2)).toDF("city", "year", "count")
+
+val workshops = tmpWorkshops union cityNull
+
+scala> workshops.show
++-------+----+-----+
+|   city|year|count|
++-------+----+-----+
+| Warsaw|2016|    2|
+|Toronto|2016|    4|
+|Toronto|2017|    1|
+|   null|2016|    2|
++-------+----+-----+
+
+val q = workshops
+  .cube("city", "year")
+  .agg(grouping("city"), grouping("year")) // <-- grouping here
+  .sort($"city".desc_nulls_last, $"year".desc_nulls_last)
+
+scala> q.show
++-------+----+--------------+--------------+
+|   city|year|grouping(city)|grouping(year)|
++-------+----+--------------+--------------+
+| Warsaw|2016|             0|             0|
+| Warsaw|null|             0|             1|
+|Toronto|2017|             0|             0|
+|Toronto|2016|             0|             0|
+|Toronto|null|             0|             1|
+|   null|2017|             1|             0|
+|   null|2016|             1|             0|
+|   null|2016|             0|             0|  <-- null is city
+|   null|null|             0|             1|  <-- null is city
+|   null|null|             1|             1|
++-------+----+--------------+--------------+
 ----
 
-`timeColumn` must be of link:spark-sql-DataType.adoc#TimestampType[TimestampType], i.e. https://docs.oracle.com/javase/8/docs/api/java/sql/Timestamp.html[java.sql.Timestamp] values.
+Internally, `grouping` creates a link:spark-sql-Column.adoc[Column] with `Grouping` expression.
 
-TIP: Use link:++https://docs.oracle.com/javase/8/docs/api/java/sql/Timestamp.html#from-java.time.Instant-++[java.sql.Timestamp.from] or link:++https://docs.oracle.com/javase/8/docs/api/java/sql/Timestamp.html#valueOf-java.time.LocalDateTime-++[java.sql.Timestamp.valueOf] factory methods to create `Timestamp` instances.
+```
+val q = workshops.cube("city", "year").agg(grouping("city"))
+scala> println(q.queryExecution.logical)
+'Aggregate [cube(city#182, year#183)], [city#182, year#183, grouping('city) AS grouping(city)#705]
++- Union
+   :- Project [_1#178 AS city#182, _2#179 AS year#183, _3#180 AS count#184]
+   :  +- LocalRelation [_1#178, _2#179, _3#180]
+   +- Project [_1#192 AS city#196, _2#193 AS year#197, _3#194 AS count#198]
+      +- LocalRelation [_1#192, _2#193, _3#194]
 
-`windowDuration` and `slideDuration` are of strings specifying the width of the window for duration and sliding identifiers, respectively.
+scala> println(q.queryExecution.analyzed)
+Aggregate [city#724, year#725, spark_grouping_id#721], [city#724, year#725, cast((shiftright(spark_grouping_id#721, 1) & 1) as tinyint) AS grouping(city)#720]
++- Expand [List(city#182, year#183, count#184, city#722, year#723, 0), List(city#182, year#183, count#184, city#722, null, 1), List(city#182, year#183, count#184, null, year#723, 2), List(city#182, year#183, count#184, null, null, 3)], [city#182, year#183, count#184, city#724, year#725, spark_grouping_id#721]
+   +- Project [city#182, year#183, count#184, city#182 AS city#722, year#183 AS year#723]
+      +- Union
+         :- Project [_1#178 AS city#182, _2#179 AS year#183, _3#180 AS count#184]
+         :  +- LocalRelation [_1#178, _2#179, _3#180]
+         +- Project [_1#192 AS city#196, _2#193 AS year#197, _3#194 AS count#198]
+            +- LocalRelation [_1#192, _2#193, _3#194]
+```
 
-TIP: Use `CalendarInterval` for valid window identifiers.
+NOTE: `grouping` was added to Spark SQL in https://issues.apache.org/jira/browse/SPARK-12706[[SPARK-12706\] support grouping/grouping_id function together group set].
 
-NOTE: `window` is available as of Spark *2.0.0*.
+=== [[grouping_id]] `grouping_id` Aggregate Function
 
-Internally, `window` creates a link:spark-sql-columns.adoc[Column] with `TimeWindow` expression.
+[source, scala]
+----
+grouping_id(cols: Column*): Column
+grouping_id(colName: String, colNames: String*): Column // <1>
+----
+<1> Calls the first `grouping_id` with `colName` and `colNames` as objects of type `Column`
+
+`grouping_id` is an aggregate function that computes the level of grouping:
+
+* `0` for combinations of each column
+* `1` for subtotals of column 1
+* `2` for subtotals of column 2
+* And so on&hellip;
+
+[source, scala]
+----
+val tmpWorkshops = Seq(
+  ("Warsaw", 2016, 2),
+  ("Toronto", 2016, 4),
+  ("Toronto", 2017, 1)).toDF("city", "year", "count")
+
+// there seems to be a bug with nulls
+// and so the need for the following union
+val cityNull = Seq(
+  (null.asInstanceOf[String], 2016, 2)).toDF("city", "year", "count")
+
+val workshops = tmpWorkshops union cityNull
+
+scala> workshops.show
++-------+----+-----+
+|   city|year|count|
++-------+----+-----+
+| Warsaw|2016|    2|
+|Toronto|2016|    4|
+|Toronto|2017|    1|
+|   null|2016|    2|
++-------+----+-----+
+
+val query = workshops
+  .cube("city", "year")
+  .agg(grouping_id()) // <-- all grouping columns used
+  .sort($"city".desc_nulls_last, $"year".desc_nulls_last)
+scala> query.show
++-------+----+-------------+
+|   city|year|grouping_id()|
++-------+----+-------------+
+| Warsaw|2016|            0|
+| Warsaw|null|            1|
+|Toronto|2017|            0|
+|Toronto|2016|            0|
+|Toronto|null|            1|
+|   null|2017|            2|
+|   null|2016|            2|
+|   null|2016|            0|
+|   null|null|            1|
+|   null|null|            3|
++-------+----+-------------+
+
+scala> spark.catalog.listFunctions.filter(_.name.contains("grouping_id")).show(false)
++-----------+--------+-----------+----------------------------------------------------+-----------+
+|name       |database|description|className                                           |isTemporary|
++-----------+--------+-----------+----------------------------------------------------+-----------+
+|grouping_id|null    |null       |org.apache.spark.sql.catalyst.expressions.GroupingID|true       |
++-----------+--------+-----------+----------------------------------------------------+-----------+
+
+// bin function gives the string representation of the binary value of the given long column
+scala> query.withColumn("bitmask", bin($"grouping_id()")).show
++-------+----+-------------+-------+
+|   city|year|grouping_id()|bitmask|
++-------+----+-------------+-------+
+| Warsaw|2016|            0|      0|
+| Warsaw|null|            1|      1|
+|Toronto|2017|            0|      0|
+|Toronto|2016|            0|      0|
+|Toronto|null|            1|      1|
+|   null|2017|            2|     10|
+|   null|2016|            2|     10|
+|   null|2016|            0|      0|  <-- null is city
+|   null|null|            3|     11|
+|   null|null|            1|      1|
++-------+----+-------------+-------+
+----
+
+The list of columns of `grouping_id` should match grouping columns (in `cube` or `rollup`) exactly, or empty which means all the grouping columns (which is exactly what the function expects).
+
+NOTE: `grouping_id` can only be used with link:spark-sql-multi-dimensional-aggregation.adoc#cube[cube], link:spark-sql-multi-dimensional-aggregation.adoc#rollup[rollup] or `GROUPING SETS` multi-dimensional aggregate operators (and is verified when link:spark-sql-Analyzer-CheckAnalysis.adoc#GroupingID[`Analyzer` does check analysis]).
+
+NOTE: Spark SQL's `grouping_id` function is known as `grouping__id` in Hive.
+
+From https://cwiki.apache.org/confluence/display/Hive/Enhanced&#43;Aggregation%2C&#43;Cube%2C&#43;Grouping&#43;and&#43;Rollup#EnhancedAggregation,Cube,GroupingandRollup-Grouping\_\_IDfunction[Hive's documentation about Grouping__ID function]:
+
+> When aggregates are displayed for a column its value is `null`. This may conflict in case the column itself has some `null` values. There needs to be some way to identify `NULL` in column, which means aggregate and `NULL` in column, which means value. `GROUPING__ID` function is the solution to that.
+
+Internally, `grouping_id()` creates a link:spark-sql-Column.adoc[Column] with `GroupingID` unevaluable expression.
+
+NOTE: link:spark-sql-Expression.adoc#Unevaluable[Unevaluable expressions] are expressions replaced by some other expressions during link:spark-sql-Analyzer.adoc[analysis] or link:spark-sql-Optimizer.adoc[optimization].
+
+```
+// workshops dataset was defined earlier
+val q = workshops
+  .cube("city", "year")
+  .agg(grouping_id())
+
+// grouping_id function is spark_grouping_id virtual column internally
+// that is resolved during analysis - see Analyzed Logical Plan
+scala> q.explain(true)
+== Parsed Logical Plan ==
+'Aggregate [cube(city#182, year#183)], [city#182, year#183, grouping_id() AS grouping_id()#742]
++- Union
+   :- Project [_1#178 AS city#182, _2#179 AS year#183, _3#180 AS count#184]
+   :  +- LocalRelation [_1#178, _2#179, _3#180]
+   +- Project [_1#192 AS city#196, _2#193 AS year#197, _3#194 AS count#198]
+      +- LocalRelation [_1#192, _2#193, _3#194]
+
+== Analyzed Logical Plan ==
+city: string, year: int, grouping_id(): int
+Aggregate [city#757, year#758, spark_grouping_id#754], [city#757, year#758, spark_grouping_id#754 AS grouping_id()#742]
++- Expand [List(city#182, year#183, count#184, city#755, year#756, 0), List(city#182, year#183, count#184, city#755, null, 1), List(city#182, year#183, count#184, null, year#756, 2), List(city#182, year#183, count#184, null, null, 3)], [city#182, year#183, count#184, city#757, year#758, spark_grouping_id#754]
+   +- Project [city#182, year#183, count#184, city#182 AS city#755, year#183 AS year#756]
+      +- Union
+         :- Project [_1#178 AS city#182, _2#179 AS year#183, _3#180 AS count#184]
+         :  +- LocalRelation [_1#178, _2#179, _3#180]
+         +- Project [_1#192 AS city#196, _2#193 AS year#197, _3#194 AS count#198]
+            +- LocalRelation [_1#192, _2#193, _3#194]
+
+== Optimized Logical Plan ==
+Aggregate [city#757, year#758, spark_grouping_id#754], [city#757, year#758, spark_grouping_id#754 AS grouping_id()#742]
++- Expand [List(city#755, year#756, 0), List(city#755, null, 1), List(null, year#756, 2), List(null, null, 3)], [city#757, year#758, spark_grouping_id#754]
+   +- Union
+      :- LocalRelation [city#755, year#756]
+      +- LocalRelation [city#755, year#756]
+
+== Physical Plan ==
+*HashAggregate(keys=[city#757, year#758, spark_grouping_id#754], functions=[], output=[city#757, year#758, grouping_id()#742])
++- Exchange hashpartitioning(city#757, year#758, spark_grouping_id#754, 200)
+   +- *HashAggregate(keys=[city#757, year#758, spark_grouping_id#754], functions=[], output=[city#757, year#758, spark_grouping_id#754])
+      +- *Expand [List(city#755, year#756, 0), List(city#755, null, 1), List(null, year#756, 2), List(null, null, 3)], [city#757, year#758, spark_grouping_id#754]
+         +- Union
+            :- LocalTableScan [city#755, year#756]
+            +- LocalTableScan [city#755, year#756]
+```
+
+NOTE: `grouping_id` was added to Spark SQL in https://issues.apache.org/jira/browse/SPARK-12706[[SPARK-12706\] support grouping/grouping_id function together group set].
+
+=== [[from_json]] Parsing Column With JSON-Encoded Records -- `from_json` Functions
+
+[source, scala]
+----
+from_json(e: Column, schema: DataType): Column  // <1>
+from_json(
+  e: Column,
+  schema: DataType,
+  options: Map[String, String]): Column
+----
+<1> Relays to the other `from_json` with empty `options`
+
+Parses a column with a JSON string into a link:spark-sql-StructType.adoc[StructType] or link:spark-sql-DataType.adoc#ArrayType[ArrayType] of `StructType` elements with the specified schema.
+
+NOTE: `options` controls how a JSON is parsed and contains the same options as the link:spark-sql-JsonDataSource.adoc[json data source].
+
+Internally, `from_json` creates a link:spark-sql-Column.adoc[Column] with link:spark-sql-Expression-JsonToStructs.adoc[JsonToStructs] unary expression.
+
+[source, scala]
+----
+val jsons = Seq("""{ "id": 0 }""").toDF("json")
+
+import org.apache.spark.sql.types._
+val schema = StructType(
+  StructField("id", IntegerType, nullable = false) :: Nil)
+
+scala> jsons.select(from_json($"json", schema) as "ids").show
++---+
+|ids|
++---+
+|[0]|
++---+
+----
+
+NOTE: `from_json` corresponds to SQL's `from_json`.
+
+=== [[bin]] Converting Long to Binary Format (in String Representation) -- `bin` Function
+
+[source, scala]
+----
+bin(e: Column): Column
+bin(columnName: String): Column // <1>
+----
+<1> Calls the first `bin` with `columnName` as a `Column`
+
+`bin` converts the long value in a column to its binary format (i.e. as an unsigned integer in base 2) with no extra leading 0s.
+
+[source, scala]
+----
+scala> spark.range(5).withColumn("binary", bin('id)).show
++---+------+
+| id|binary|
++---+------+
+|  0|     0|
+|  1|     1|
+|  2|    10|
+|  3|    11|
+|  4|   100|
++---+------+
+
+val withBin = spark.range(5).withColumn("binary", bin('id))
+scala> withBin.printSchema
+root
+ |-- id: long (nullable = false)
+ |-- binary: string (nullable = false)
+----
+
+Internally, `bin` creates a link:spark-sql-Column.adoc[Column] with `Bin` unary expression.
+
+[source, scala]
+----
+scala> withBin.queryExecution.logical
+res2: org.apache.spark.sql.catalyst.plans.logical.LogicalPlan =
+'Project [*, bin('id) AS binary#14]
++- Range (0, 5, step=1, splits=Some(8))
+----
+
+NOTE: `Bin` unary expression uses link:++https://docs.oracle.com/javase/8/docs/api/java/lang/Long.html#toBinaryString-long-++[java.lang.Long.toBinaryString] for the conversion.
+
+[NOTE]
+====
+`Bin` expression supports link:spark-sql-Expression.adoc#doGenCode[code generation] (aka _CodeGen_).
+
+```
+val withBin = spark.range(5).withColumn("binary", bin('id))
+scala> withBin.queryExecution.debug.codegen
+Found 1 WholeStageCodegen subtrees.
+== Subtree 1 / 1 ==
+*Project [id#19L, bin(id#19L) AS binary#22]
++- *Range (0, 5, step=1, splits=Some(8))
+...
+/* 103 */           UTF8String project_value1 = null;
+/* 104 */           project_value1 = UTF8String.fromString(java.lang.Long.toBinaryString(range_value));
+
+```
+====

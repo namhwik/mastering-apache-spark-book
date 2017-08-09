@@ -35,7 +35,7 @@ CAUTION: FIXME Add Cluster Manager and Deploy Mode to the table below (see `opti
 | `--driver-cores` | `spark.driver.cores` | | | `driverCores`
 | `--exclude-packages` | `spark.jars.excludes` | | | `packagesExclusions`
 | `--executor-cores` | `spark.executor.cores` | `SPARK_EXECUTOR_CORES` | The number of executor CPU cores | `executorCores`
-| [[executor-memory]] `--executor-memory` | [[spark_executor_memory]] `spark.executor.memory` | `SPARK_EXECUTOR_MEMORY` | An executor's memory | `executorMemory`
+| [[executor-memory]] `--executor-memory` | [[spark.executor.memory]] `spark.executor.memory` | `SPARK_EXECUTOR_MEMORY` | An executor's memory | `executorMemory`
 | `--files` | `spark.files` | | | `files`
 | `ivyRepoPath` | `spark.jars.ivy` | | |
 | `--jars` | `spark.jars` | | | `jars`
@@ -44,7 +44,7 @@ CAUTION: FIXME Add Cluster Manager and Deploy Mode to the table below (see `opti
 | `--master` | `spark.master` | `MASTER` | Master URL. Defaults to `local[*]` | `master`
 | `--class` | | | | `mainClass`
 | `--name` | `spark.app.name` | `SPARK_YARN_APP_NAME` (YARN only) | Uses `mainClass` or the directory off `primaryResource` when no other ways set it | `name`
-| `--num-executors` | link:spark-executor.adoc#spark.executor.instances[spark.executor.instances] | | | `numExecutors`
+| `--num-executors` | link:spark-Executor.adoc#spark.executor.instances[spark.executor.instances] | | | `numExecutors`
 | [[packages]] `--packages` | `spark.jars.packages` | | | `packages`
 | `--principal` | `spark.yarn.principal` | | | `principal`
 | `--properties-file` | `spark.yarn.principal` | | | `propertiesFile`
@@ -413,7 +413,7 @@ YARN-only options:
 
 `--driver-class-path` command-line option sets the extra class path entries (e.g. jars and directories) that should be added to a driver's JVM.
 
-TIP: You should use `--driver-class-path` in `client` deploy mode (not link:spark-configuration.adoc[SparkConf]) to ensure that the CLASSPATH is set up with the entries. `client` deploy mode uses the same JVM for the driver as ``spark-submit``'s.
+TIP: You should use `--driver-class-path` in `client` deploy mode (not link:spark-SparkConf.adoc[SparkConf]) to ensure that the CLASSPATH is set up with the entries. `client` deploy mode uses the same JVM for the driver as ``spark-submit``'s.
 
 `--driver-class-path` sets the internal `driverExtraClassPath` property (when link:spark-submit-SparkSubmitArguments.adoc#handle[SparkSubmitArguments.handle] called).
 
@@ -474,7 +474,7 @@ The following is the list of environment variables that are considered when comm
 
 * `MASTER` for `--master`
 * `SPARK_DRIVER_MEMORY` for `--driver-memory`
-* `SPARK_EXECUTOR_MEMORY` (see link:spark-sparkcontext.adoc#environment-variables[Environment Variables] in the SparkContext document)
+* `SPARK_EXECUTOR_MEMORY` (see link:spark-SparkContext.adoc#environment-variables[Environment Variables] in the SparkContext document)
 * `SPARK_EXECUTOR_CORES`
 * `DEPLOY_MODE`
 * `SPARK_YARN_APP_NAME`

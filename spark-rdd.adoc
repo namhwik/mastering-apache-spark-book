@@ -78,11 +78,11 @@ Technically, RDDs follow the <<contract, contract>> defined by the five main int
 This RDD abstraction supports an expressive set of operations without having to modify scheduler for each one.
 
 [[context]]
-An RDD is a named (by `name`) and uniquely identified (by `id`) entity in a link:spark-sparkcontext.adoc[SparkContext] (available as `context` property).
+An RDD is a named (by `name`) and uniquely identified (by `id`) entity in a link:spark-SparkContext.adoc[SparkContext] (available as `context` property).
 
-RDDs live in one and only one link:spark-sparkcontext.adoc[SparkContext] that creates a logical boundary.
+RDDs live in one and only one link:spark-SparkContext.adoc[SparkContext] that creates a logical boundary.
 
-NOTE: RDDs cannot be shared between `SparkContexts` (see link:spark-sparkcontext.adoc#sparkcontext-and-rdd[SparkContext and RDDs]).
+NOTE: RDDs cannot be shared between `SparkContexts` (see link:spark-SparkContext.adoc#sparkcontext-and-rdd[SparkContext and RDDs]).
 
 An RDD can optionally have a friendly name accessible using `name` that can be changed using `=`:
 
@@ -106,7 +106,7 @@ scala> ns.toDebugString
 res3: String = (8) Friendly name ParallelCollectionRDD[2] at parallelize at <console>:24 []
 ```
 
-RDDs are a container of instructions on how to materialize big (arrays of) distributed data, and how to split it into partitions so Spark (using link:spark-executor.adoc[executors]) can hold some of them.
+RDDs are a container of instructions on how to materialize big (arrays of) distributed data, and how to split it into partitions so Spark (using link:spark-Executor.adoc[executors]) can hold some of them.
 
 In general data distribution can help executing processing in parallel so a task processes a chunk of data that it could eventually keep in memory.
 
@@ -136,11 +136,37 @@ CAUTION: FIXME
 
 === [[persist]] `persist` Methods
 
+[source, scala]
+----
+persist(): this.type
+persist(newLevel: StorageLevel): this.type
+----
+
+Refer to link:spark-rdd-caching.adoc#persist[Persisting RDD -- `persist` Methods].
+
+=== [[persist-internal]] `persist` Internal Method
+
+[source, scala]
+----
+persist(newLevel: StorageLevel, allowOverride: Boolean): this.type
+----
+
 CAUTION: FIXME
+
+NOTE: `persist` is used when `RDD` is requested to <<persist, persist>> itself and <<localCheckpoint, marks itself for local checkpointing>>.
 
 === [[unpersist]] `unpersist` Method
 
 CAUTION: FIXME
+
+=== [[localCheckpoint]] `localCheckpoint` Method
+
+[source, scala]
+----
+localCheckpoint(): this.type
+----
+
+Refer to link:spark-rdd-checkpointing.adoc#localCheckpoint[Marking RDD for Local Checkpointing -- `localCheckpoint` Method].
 
 === [[contract]] RDD Contract
 

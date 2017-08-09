@@ -1,8 +1,8 @@
-== Catalog
+== [[Catalog]] Catalog
 
 `Catalog` is the <<contract, interface to work with a metastore>>, i.e. a data catalog of  database(s), local and external tables, functions, table columns, and temporary views in Spark SQL.
 
-You can access the current catalog using link:spark-sql-sparksession.adoc#catalog[SparkSession.catalog] attribute.
+You can access the current catalog using link:spark-sql-SparkSession.adoc#catalog[SparkSession.catalog] attribute.
 
 [source, scala]
 ----
@@ -26,15 +26,17 @@ scala> spark.catalog.listTables.show
 scala> spark.catalog.clearCache
 ----
 
-The one and only implementation of the <<contract, Catalog contract>> is <<CatalogImpl, CatalogImpl>>.
+NOTE: The one and only `Catalog` in Spark SQL is link:spark-sql-CatalogImpl.adoc[CatalogImpl].
 
-=== [[contract]] `Catalog` Contract
+=== [[contract]] Catalog Contract
 
 [source, scala]
 ----
 package org.apache.spark.sql.catalog
 
 abstract class Catalog {
+  def cacheTable(tableName: String): Unit
+  def cacheTable(tableName: String, storageLevel: StorageLevel): Unit
   def currentDatabase: String
   def setCurrentDatabase(dbName: String): Unit
   def listDatabases(): Dataset[Database]
@@ -57,83 +59,26 @@ abstract class Catalog {
       options: Map[String, String]): DataFrame
   def dropTempView(viewName: String): Unit
   def isCached(tableName: String): Boolean
-  def cacheTable(tableName: String): Unit
   def uncacheTable(tableName: String): Unit
   def clearCache(): Unit
   def refreshTable(tableName: String): Unit
   def refreshByPath(path: String): Unit
+  def functionExists(functionName: String): Boolean
+  def functionExists(dbName: String, functionName: String): Boolean
 }
 ----
 
-=== [[CatalogImpl]] CatalogImpl
+.Catalog Contract (in alphabetical order)
+[cols="1,2",options="header",width="100%"]
+|===
+| Method
+| Description
 
-`CatalogImpl` is the one and only <<contract, Catalog>> that relies on a per-session link:spark-sql-SessionCatalog.adoc[SessionCatalog] (through link:spark-sql-sparksession.adoc[SparkSession]) to obey the <<contract, Catalog contract>>.
+| [[cacheTable]] `cacheTable`
+| Caches the specified table in memory
 
-.CatalogImpl uses SessionCatalog (through SparkSession)
-image::images/spark-sql-CatalogImpl.png[align="center"]
+Used for SQL's link:spark-sql-caching.adoc#cache-table[CACHE TABLE] and `AlterTableRenameCommand` command.
 
-It lives in `org.apache.spark.sql.internal` package.
-
-==== [[clearCache]] Removing All Cached Tables From In-Memory Cache -- `clearCache` Method
-
-[source, scala]
-----
-clearCache(): Unit
-----
-
-`clearCache` requests link:spark-sql-CacheManager.adoc#clearCache[`CacheManager` to remove all cached tables from in-memory cache].
-
-NOTE: `clearCache` is a part of <<contract, `Catalog` Contract>>.
-
-==== [[createExternalTable]] Creating External Table From Path -- `createExternalTable` Method
-
-[source, scala]
-----
-createExternalTable(tableName: String, path: String): DataFrame
-createExternalTable(tableName: String, path: String, source: String): DataFrame
-createExternalTable(
-  tableName: String,
-  source: String,
-  options: Map[String, String]): DataFrame
-createExternalTable(
-  tableName: String,
-  source: String,
-  schema: StructType,
-  options: Map[String, String]): DataFrame
-----
-
-`createExternalTable` creates an external table `tableName` from the given `path` and returns the corresponding link:spark-sql-dataframe.adoc[DataFrame].
-
-[source, scala]
-----
-import org.apache.spark.sql.SparkSession
-val spark: SparkSession = ...
-
-val readmeTable = spark.catalog.createExternalTable("readme", "README.md", "text")
-readmeTable: org.apache.spark.sql.DataFrame = [value: string]
-
-scala> spark.catalog.listTables.filter(_.name == "readme").show
-+------+--------+-----------+---------+-----------+
-|  name|database|description|tableType|isTemporary|
-+------+--------+-----------+---------+-----------+
-|readme| default|       null| EXTERNAL|      false|
-+------+--------+-----------+---------+-----------+
-
-scala> sql("select count(*) as count from readme").show(false)
-+-----+
-|count|
-+-----+
-|99   |
-+-----+
-----
-
-The `source` input parameter is the name of the data source provider for the table, e.g. parquet, json, text. If not specified, `createExternalTable` uses link:spark-sql-settings.adoc#spark.sql.sources.default[spark.sql.sources.default] setting to know the data source format.
-
-NOTE: `source` input parameter must not be `hive` as it leads to a `AnalysisException`.
-
-`createExternalTable` sets the mandatory `path` option when specified explicitly in the input parameter list.
-
-`createExternalTable` parses `tableName` into `TableIdentifier` (using link:spark-sql-sql-parsers.adoc#SparkSqlParser[SparkSqlParser]). It creates a `CatalogTable` and then link:spark-sql-sessionstate.adoc#executePlan[executes] (by link:spark-sql-query-execution.adoc#toRdd[toRDD]) a `CreateTable` link:spark-sql-LogicalPlan.adoc[logical plan]. The result link:spark-sql-dataframe.adoc[DataFrame] is a `Dataset[Row]` with the link:spark-sql-query-execution.adoc[QueryExecution] after executing `SubqueryAlias` logical plan and link:spark-sql-RowEncoder.adoc[RowEncoder].
-
-.CatalogImpl.createExternalTable
-image::images/spark-sql-CatalogImpl-createExternalTable.png[align="center"]
+| [[functionExists]] `functionExists`
+|
+|===

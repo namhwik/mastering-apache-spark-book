@@ -1,12 +1,12 @@
 == [[BlockManager]] BlockManager -- Key-Value Store for Blocks
 
-`BlockManager` is a key-value store for blocks of data (simply _blocks_) in Spark. `BlockManager` acts as a local cache that runs on every "node" in a Spark application, i.e. the link:spark-driver.adoc[driver] and link:spark-executor.adoc[executors] (and is created when link:spark-sparkenv.adoc#BlockManager[`SparkEnv` is created]).
+`BlockManager` is a key-value store for blocks of data (simply _blocks_) in Spark. `BlockManager` acts as a local cache that runs on every "node" in a Spark application, i.e. the link:spark-driver.adoc[driver] and link:spark-Executor.adoc[executors] (and is created when link:spark-sparkenv.adoc#BlockManager[`SparkEnv` is created]).
 
 `BlockManager` provides interface for uploading and fetching blocks both locally and remotely using various stores, i.e. <<stores, memory, disk, and off-heap>>.
 
 When <<creating-instance, `BlockManager` is created>>, it creates its own private instances of link:spark-DiskBlockManager.adoc[DiskBlockManager], link:spark-BlockInfoManager.adoc[BlockInfoManager], link:spark-MemoryStore.adoc[MemoryStore] and link:spark-DiskStore.adoc[DiskStore] (that it immediately wires together, i.e. `BlockInfoManager` with `MemoryStore` and `DiskStore` with `DiskBlockManager`).
 
-The common idiom in Spark to access a `BlockManager` regardless of a location, i.e. the driver or executors, is through  link:spark-sparkenv.adoc#get[SparkEnv]:
+The common idiom in Spark to access a `BlockManager` regardless of a location, i.e. the driver or executors, is through link:spark-sparkenv.adoc#get[SparkEnv]:
 
 [source, scala]
 ----
@@ -19,11 +19,14 @@ SparkEnv.get.blockManager
 
 TIP: Use link:spark-webui.adoc[Web UI], esp. link:spark-webui-storage.adoc[Storage] and link:spark-webui-executors.adoc[Executors] tabs, to monitor the memory used.
 
-TIP: Use link:spark-submit.adoc[spark-submit]'s command-line options, i.e. link:spark-submit.adoc#driver-memory[--driver-memory] for the driver and link:spark-submit.adoc#executor-memory[--executor-memory] for executors or their equivalents as Spark properties, i.e. link:spark-submit.adoc#spark_executor_memory[spark.executor.memory] and link:spark-submit.adoc#spark_driver_memory[spark.driver.memory], to control the memory for storage memory.
+TIP: Use link:spark-submit.adoc[spark-submit]'s command-line options, i.e. link:spark-submit.adoc#driver-memory[--driver-memory] for the driver and link:spark-submit.adoc#executor-memory[--executor-memory] for executors or their equivalents as Spark properties, i.e. link:spark-submit.adoc#spark.executor.memory[spark.executor.memory] and link:spark-submit.adoc#spark_driver_memory[spark.driver.memory], to control the memory for storage memory.
 
 A <<creating-instance, `BlockManager` is created>> when a link:spark-sparkenv.adoc#create[Spark application starts] and must be <<initialize, initialized>> before it is fully operable.
 
 When <<externalShuffleServiceEnabled, External Shuffle Service is enabled>>, `BlockManager` uses link:spark-shuffleclient.adoc#ExternalShuffleClient[ExternalShuffleClient] to read other executors' shuffle files.
+
+[[metrics]]
+`BlockManager` uses link:spark-blockmanager-BlockManagerSource.adoc[BlockManagerSource] to report metrics under the name *BlockManager*.
 
 [[internal-properties]]
 .BlockManager's Internal Properties
@@ -37,6 +40,9 @@ When <<externalShuffleServiceEnabled, External Shuffle Service is enabled>>, `Bl
 | FIXME
 | link:spark-DiskBlockManager.adoc[DiskBlockManager] for...FIXME
 
+| [[maxMemory]] `maxMemory`
+| Total available link:spark-MemoryManager.adoc#maxOnHeapStorageMemory[on-heap] and link:spark-MemoryManager.adoc#maxOffHeapStorageMemory[off-heap] memory for storage (in bytes)
+| Total maximum value that `BlockManager` can ever possibly use (that depends on <<memoryManager, MemoryManager>> and may vary over time).
 |===
 
 [TIP]
@@ -241,7 +247,7 @@ NOTE: `putBlockData` is a part of link:spark-blockdatamanager.adoc[BlockDataMana
 
 Internally, `putBlockData` wraps `ChunkedByteBuffer` around `data` buffer's NIO `ByteBuffer` and calls <<putBytes, putBytes>>.
 
-NOTE: `putBlockData` is used when link:spark-NettyBlockRpcServer.adoc[`NettyBlockRpcServer` handles a `UploadBlock` message].
+NOTE: `putBlockData` is used when `NettyBlockRpcServer` link:spark-NettyBlockRpcServer.adoc[handles a `UploadBlock` message].
 
 === [[putBytes]] Storing Block Bytes Locally -- `putBytes` Method
 
@@ -450,8 +456,8 @@ CAUTION: FIXME
 * link:spark-rpc.adoc[RpcEnv]
 * [[master]] link:spark-BlockManagerMaster.adoc[BlockManagerMaster]
 * link:spark-SerializerManager.adoc[SerializerManager]
-* link:spark-configuration.adoc[SparkConf]
-* link:spark-MemoryManager.adoc[MemoryManager]
+* link:spark-SparkConf.adoc[SparkConf]
+* [[memoryManager]] link:spark-MemoryManager.adoc[MemoryManager]
 * link:spark-service-mapoutputtracker.adoc[MapOutputTracker]
 * link:spark-ShuffleManager.adoc[ShuffleManager]
 * link:spark-blocktransferservice.adoc[BlockTransferService]
@@ -506,7 +512,7 @@ CAUTION: FIXME
 initialize(appId: String): Unit
 ----
 
-`initialize` initializes a `BlockManager` on the driver and executors (see link:spark-sparkcontext.adoc#creating-instance[Creating SparkContext Instance] and link:spark-executor.adoc#creating-instance[Creating Executor Instance], respectively).
+`initialize` initializes a `BlockManager` on the driver and executors (see link:spark-SparkContext.adoc#creating-instance[Creating SparkContext Instance] and link:spark-Executor.adoc#creating-instance[Creating Executor Instance], respectively).
 
 NOTE: The method must be called before a `BlockManager` can be considered fully operable.
 
@@ -534,7 +540,7 @@ It link:spark-BlockManagerMaster.adoc#registerBlockManager[registers itself to t
 
 Ultimately, if the initialization happens on an executor and the <<externalShuffleServiceEnabled, External Shuffle Service is used>>, it <<registerWithExternalShuffleServer, registers to the shuffle service>>.
 
-NOTE: `initialize` is called when the link:spark-sparkcontext-creating-instance-internals.adoc#BlockManager-initialization[driver is launched (and `SparkContext` is created)] and when an link:spark-executor.adoc#creating-instance[`Executor` is created] (for link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc#RegisteredExecutor[CoarseGrainedExecutorBackend] and link:spark-executor-backends-MesosExecutorBackend.adoc[MesosExecutorBackend]).
+NOTE: `initialize` is called when the link:spark-sparkcontext-creating-instance-internals.adoc#BlockManager-initialization[driver is launched (and `SparkContext` is created)] and when an link:spark-Executor.adoc#creating-instance[`Executor` is created] (for link:spark-executor-backends-CoarseGrainedExecutorBackend.adoc#RegisteredExecutor[CoarseGrainedExecutorBackend] and link:spark-executor-backends-MesosExecutorBackend.adoc[MesosExecutorBackend]).
 
 ==== [[registerWithExternalShuffleServer]] Registering Executor's BlockManager with External Shuffle Server -- `registerWithExternalShuffleServer` Method
 
@@ -567,14 +573,14 @@ Any issues while connecting to the external shuffle service are reported as ERRO
 ERROR Failed to connect to external shuffle server, will retry [#attempts] more times after waiting 5 seconds...
 ```
 
-=== [[reregister]] Re-registering Blocks to Driver -- `reregister` Method
+=== [[reregister]] Re-registering BlockManager with Driver and Reporting Blocks -- `reregister` Method
 
 [source, scala]
 ----
 reregister(): Unit
 ----
 
-When called, `reregister` prints the following INFO message to the logs:
+When executed, `reregister` prints the following INFO message to the logs:
 
 ```
 INFO BlockManager: BlockManager [blockManagerId] re-registering with master
@@ -600,7 +606,7 @@ ERROR BlockManager: Failed to report [blockId] to master; giving up.
 
 After the ERROR message, `reregister` stops reporting.
 
-NOTE: `reregister` is called when a link:spark-executor.adoc#heartbeats-and-active-task-metrics[`Executor` was informed to re-register while sending heartbeats].
+NOTE: `reregister` is called when a link:spark-Executor.adoc#heartbeats-and-active-task-metrics[`Executor` was informed to re-register while sending heartbeats].
 
 === [[getCurrentBlockStatus]] Calculate Current Block Status -- `getCurrentBlockStatus` Method
 
@@ -697,7 +703,7 @@ DEBUG BlockManager: Told master about block [blockId]
 
 NOTE: `reportBlockStatus` is called by <<getBlockData, getBlockData>>, <<doPutBytes, doPutBytes>>, <<doPutIterator, doPutIterator>>, <<dropFromMemory, dropFromMemory>> and <<removeBlockInternal, removeBlockInternal>>.
 
-=== [[tryToReportBlockStatus]] Reporting Block Status to Driver -- `tryToReportBlockStatus` Method
+=== [[tryToReportBlockStatus]] Reporting Block Status Update to Driver -- `tryToReportBlockStatus` Internal Method
 
 [source, scala]
 ----
@@ -708,9 +714,9 @@ def tryToReportBlockStatus(
   droppedMemorySize: Long = 0L): Boolean
 ----
 
-`tryToReportBlockStatus` is an internal method to link:spark-BlockManagerMaster.adoc#updateBlockInfo[report block status update to `BlockManagerMaster`] and returns its response.
+`tryToReportBlockStatus` link:spark-BlockManagerMaster.adoc#updateBlockInfo[reports block status update] to <<master, BlockManagerMaster>> and returns its response.
 
-NOTE: `tryToReportBlockStatus` is executed in <<reportAllBlocks, reportAllBlocks>> or <<reportBlockStatus, reportBlockStatus>>.
+NOTE: `tryToReportBlockStatus` is used when `BlockManager` <<reportAllBlocks, reportAllBlocks>> or <<reportBlockStatus, reportBlockStatus>>.
 
 === [[BlockEvictionHandler]] BlockEvictionHandler
 
@@ -751,24 +757,11 @@ FIXME
 
 *block-manager-future* is the execution context for...FIXME
 
-=== [[metrics]] Metrics
-
-Block Manager uses link:spark-metrics.adoc[Spark Metrics System] (via `BlockManagerSource`) to report metrics about internal status.
-
-The name of the source is *BlockManager*.
-
-It emits the following numbers:
-
-* memory / maxMem_MB - the maximum memory configured
-* memory / remainingMem_MB - the remaining memory
-* memory / memUsed_MB - the memory used
-* memory / diskSpaceUsed_MB - the disk used
-
 === Misc
 
 The underlying abstraction for blocks in Spark is a `ByteBuffer` that limits the size of a block to 2GB (`Integer.MAX_VALUE` - see http://stackoverflow.com/q/8076472/1305344[Why does FileChannel.map take up to Integer.MAX_VALUE of data?] and https://issues.apache.org/jira/browse/SPARK-1476[SPARK-1476 2GB limit in spark for blocks]). This has implication not just for managed blocks in use, but also for shuffle blocks (memory mapped blocks are limited to 2GB, even though the API allows for `long`), ser-deser via byte array-backed output streams.
 
-When a non-local executor starts, it initializes a `BlockManager` object using link:spark-configuration.adoc#spark_app_id[spark.app.id] Spark property for the id.
+When a non-local executor starts, it initializes a `BlockManager` object using link:spark-SparkConf.adoc#spark.app.id[spark.app.id] Spark property for the id.
 
 === [[BlockResult]] BlockResult
 

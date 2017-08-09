@@ -1,10 +1,10 @@
 == UDFs -- User-Defined Functions
 
-*User-Defined Functions* (aka *UDF*) is a feature of Spark SQL to define new link:spark-sql-columns.adoc[Column]-based functions that extend the vocabulary of Spark SQL's DSL for transforming link:spark-sql-dataset.adoc[Datasets].
+*User-Defined Functions* (aka *UDF*) is a feature of Spark SQL to define new link:spark-sql-Column.adoc[Column]-based functions that extend the vocabulary of Spark SQL's DSL for transforming link:spark-sql-Dataset.adoc[Datasets].
 
 [TIP]
 ====
-Use the link:spark-sql-functions.adoc[higher-level standard Column-based functions] with link:spark-sql-dataset.adoc[Dataset operators] whenever possible before reverting to using your own custom UDF functions since <<udfs-are-blackbox, UDFs are a blackbox>> for Spark and so it does not even try to optimize them.
+Use the link:spark-sql-functions.adoc[higher-level standard Column-based functions] with link:spark-sql-Dataset.adoc[Dataset operators] whenever possible before reverting to using your own custom UDF functions since <<udfs-are-blackbox, UDFs are a blackbox>> for Spark and so it does not even try to optimize them.
 
 As Reynold once said on Spark's dev mailing list:
 
@@ -36,7 +36,7 @@ scala> dataset.withColumn("upper", upperUDF('text)).show
 +---+-----+-----+
 ----
 
-You can register UDFs to use in link:spark-sql-sparksession.adoc#sql[SQL-based query expressions] via `UDFRegistration` (that is available through link:spark-sql-sparksession.adoc#udf[`SparkSession.udf` attribute]).
+You can register UDFs to use in link:spark-sql-SparkSession.adoc#sql[SQL-based query expressions] via link:spark-sql-UDFRegistration.adoc[UDFRegistration] (that is available through link:spark-sql-SparkSession.adoc#udf[`SparkSession.udf` attribute]).
 
 [source, scala]
 ----
@@ -44,7 +44,7 @@ val spark: SparkSession = ...
 scala> spark.udf.register("myUpper", (input: String) => input.toUpperCase)
 ----
 
-You can query for available link:spark-sql-functions.adoc[standard] and user-defined functions using the link:spark-sql-Catalog.adoc[Catalog] interface (that is available through link:spark-sql-sparksession.adoc#catalog[`SparkSession.catalog` attribute]).
+You can query for available link:spark-sql-functions.adoc[standard] and user-defined functions using the link:spark-sql-Catalog.adoc[Catalog] interface (that is available through link:spark-sql-SparkSession.adoc#catalog[`SparkSession.catalog` attribute]).
 
 [source, scala]
 ----
@@ -119,7 +119,7 @@ scala> spark.conf.get("spark.sql.parquet.filterPushdown")
 res0: String = true
 ----
 
-You are going to use the following `cities` dataset that is based on Parquet file (as used in link:spark-sql-catalyst-optimizer-PushDownPredicate.adoc#parquet[Predicate Pushdown / Filter Pushdown for Parquet Data Source] section). The reason for parquet is that it is an external data source that does support optimization Spark uses to optimize itself like predicate pushdown.
+You are going to use the following `cities` dataset that is based on Parquet file (as used in link:spark-sql-Optimizer-PushDownPredicate.adoc#parquet[Predicate Pushdown / Filter Pushdown for Parquet Data Source] section). The reason for parquet is that it is an external data source that does support optimization Spark uses to optimize itself like predicate pushdown.
 
 [source, scala]
 ----
